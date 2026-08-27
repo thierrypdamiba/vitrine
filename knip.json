@@ -1,0 +1,15 @@
+{
+  "ignore": [
+    ".safeword/**",
+    ".project/**",
+    ".safeword-project/**",
+    ".next/**"
+  ],
+  "ignoreDependencies": [
+    "safeword",
+    "dependency-cruiser",
+    "tailwindcss",
+    "@tailwindcss/typography",
+    "@tailwindcss/forms"
+  ]
+}
