@@ -2,5 +2,25 @@
   "installedPacks": [
     "typescript"
   ],
-  "projectUUID": "564b3c87-5772-44af-b222-e93a298f5d74"
+  "projectUUID": "564b3c87-5772-44af-b222-e93a298f5d74",
+  "docs": {
+    "sources": [
+      {
+        "type": "local",
+        "path": "AGENTS.md"
+      },
+      {
+        "type": "local",
+        "path": "docs"
+      },
+      {
+        "type": "url",
+        "url": "https://webmcp.devpost.com/"
+      },
+      {
+        "type": "url",
+        "url": "https://webmcp.devpost.com/rules"
+      }
+    ]
+  }
 }
