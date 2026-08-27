@@ -10,7 +10,7 @@ done_when:
 inspiration_contract: v1
 inspiration_contract_scaffold: v1
 created: 2026-08-27T00:49:16.926Z
-last_modified: 2026-08-27T01:08:00.000Z
+last_modified: 2026-08-27T01:24:00.000Z
 ---
 
 # Build the Passage privacy demo
@@ -25,3 +25,5 @@ last_modified: 2026-08-27T01:08:00.000Z
 - 2026-08-27T01:08:00.000Z Context: Indexed official challenge, WebMCP specification,
   implementation, security, browser tooling, judge, supporter, and community sources; drafted Rules
   for owner confirmation
+- 2026-08-27T01:24:00.000Z Gate: Project owner approved the Rules; reopened the Arcade boundary
+  choice before engineering-scope confirmation

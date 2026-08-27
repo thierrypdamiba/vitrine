@@ -104,10 +104,15 @@ immediately visible without asking the shopper or judge to trust a privacy sloga
 - **HJ1.R4 — Reproducible proof:** The hosted app and repository provide a short, credential-free
   path to inspect tool inputs, outputs, UI effects, and the received merchant request.
 
+**Gate:** Approved by the project owner on 2026-08-27.
+
 ## Outcomes
 
-Pending Rules confirmation.
+- A shopper gets at least one event-appropriate option under budget while Vitrine receives no event
+  context or budget ceiling.
+- A judge can reproduce the private path, inspect the WebMCP call, and match the Seam to Vitrine's
+  received payload without credentials.
 
 ## Open Questions
 
-None.
+- Should Arcade run as the agent's connected MCP service or behind Passage's application backend?
