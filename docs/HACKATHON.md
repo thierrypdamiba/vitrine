@@ -30,6 +30,25 @@ The four criteria are equally weighted:
 4. **Creativity and Ambition:** The concept should be novel and meaningfully different from existing
    projects.
 
+Judging has a pass/fail viability stage before the scored stage. Passage must first be recognizably
+on-theme and use WebMCP in a real, working path. The four criteria above then carry equal weight.
+
+## Public judge roster
+
+The official OpenAI challenge page and Devpost page list:
+
+- Sarah Drasner — Distinguished Engineer, Chrome, Google
+- Andrew Galloni — VP Research & Innovation, Cloudflare
+- Jude Gao — Member of Technical Staff, Vercel; Next.js Core Team
+- Ilya Grigorik — Distinguished Engineer, Shopify
+- Alex Nahas — Creator of MCP-B
+- Sean Roberts — VP of Applied AI, Netlify
+- Justin Rushing — Browser Platform Lead, OpenAI
+
+Do not invent individual preferences. Design and submission choices must answer the published
+criteria, while assuming the panel can scrutinize browser behavior, commerce boundaries, hosting
+reliability, and whether the experience is genuinely agent-native.
+
 ## Required submission material
 
 - A working live URL accessible in ChatGPT's in-app browser or Google Chrome with WebMCP enabled.
@@ -62,6 +81,19 @@ Passage turns a private shopping problem into an inspectable WebMCP workflow:
 
 The critical path uses deterministic event and inventory data. Arcade, Google, Shopify, checkout, and
 account creation remain outside the first submission-ready build.
+
+## Judge-facing story
+
+The product claim should be legible in one short sequence:
+
+1. A shopper supplies Passage with private event context.
+2. An agent invokes Passage's WebMCP tools and produces relevant dresses.
+3. The Seam reveals that Vitrine received only size and length.
+4. A labeled leaky simulation shows the disclosure the private path avoided.
+
+This sequence must be visible in the hosted app, reproducible from the README, and clear in a demo
+video under three minutes. The interface should establish the privacy problem and the WebMCP benefit
+before explaining implementation details.
 
 ## Definition of submission-ready
 

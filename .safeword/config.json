@@ -20,6 +20,47 @@
       {
         "type": "url",
         "url": "https://webmcp.devpost.com/rules"
+      },
+      {
+        "type": "url",
+        "url": "https://webmcp.devpost.com/resources"
+      },
+      {
+        "type": "url",
+        "url": "https://openai.com/webmcp-challenge/"
+      },
+      {
+        "type": "git",
+        "repo": "https://github.com/webmachinelearning/webmcp.git",
+        "path": "."
+      },
+      {
+        "type": "url",
+        "url": "https://webmachinelearning.github.io/webmcp/"
+      },
+      {
+        "type": "url",
+        "url": "https://developer.chrome.com/docs/ai/webmcp"
+      },
+      {
+        "type": "url",
+        "url": "https://developer.chrome.com/docs/ai/webmcp/evals"
+      },
+      {
+        "type": "url",
+        "url": "https://developer.chrome.com/docs/ai/webmcp/secure-tools"
+      },
+      {
+        "type": "url",
+        "url": "https://developer.chrome.com/docs/agents/security"
+      },
+      {
+        "type": "url",
+        "url": "https://developer.chrome.com/docs/devtools/application/webmcp"
+      },
+      {
+        "type": "url",
+        "url": "https://dev.to/studiomeyer_io/webmcp-reality-check-where-the-spec-actually-stands-4gh1"
       }
     ]
   }

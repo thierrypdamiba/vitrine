@@ -17,10 +17,14 @@
 
 **Kind:** Agent runtime
 **Audience:** Hackathon judge (HJ)
-**Examples:** Chrome 149+ with the WebMCP testing flag enabled
+**Examples:** Chrome 149 origin trial or local Chrome with the WebMCP testing flag enabled
+**Coverage notes:** Use the DevTools Application → WebMCP panel to inspect registered tools, schemas,
+inputs, outputs, errors, and invocation history.
 
 ## Hosted Site
 
 **Kind:** Deployment mode
 **Audience:** Hackathon judge (HJ)
 **Examples:** Public HTTPS deployment with no required credentials
+**Coverage notes:** Must preserve origin isolation and expose the same product behavior to humans and
+WebMCP agents.

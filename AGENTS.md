@@ -23,7 +23,15 @@ HTTP adapter.
 
 ## Hackathon context
 
-Read @docs/HACKATHON.md before changing scope, judging behavior, submission material, or deployment.
+Read these files before changing scope, WebMCP behavior, judging material, or deployment:
+
+- @docs/HACKATHON.md
+- @docs/WEBMCP.md
+- @docs/ECOSYSTEM.md
+- @docs/SOURCES.md
+
+The source order in `docs/SOURCES.md` settles conflicts. Current WebMCP specification and browser
+documentation outrank examples, blog posts, and model memory.
 
 SafeWord owns the development workflow under `.safeword/`. Project product knowledge lives under
 `.project/`.
