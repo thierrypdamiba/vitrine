@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 
-import { clearMemo, isRateLimited, isSameOriginRequest, memo } from './request-guard.ts';
+import {
+  clearMemo,
+  isRateLimited,
+  isSameOriginRequest,
+  MAX_PER_WINDOW,
+  memo,
+  trackedClientKeys,
+} from './request-guard.ts';
 
 describe('vault request guard', () => {
   it('accepts same-origin fetches and rejects cross-site or headerless callers', () => {
@@ -14,11 +21,21 @@ describe('vault request guard', () => {
     assert.equal(isSameOriginRequest(new Request(url)), false);
   });
 
-  it('throttles a caller after twenty requests in a minute', () => {
+  it('throttles a caller after sixty requests in a minute', () => {
+    assert.equal(MAX_PER_WINDOW, 60);
     const start = 1_000_000;
-    for (let i = 0; i < 20; i += 1) assert.equal(isRateLimited('judge', start + i), false);
-    assert.equal(isRateLimited('judge', start + 21), true);
+    for (let i = 0; i < 60; i += 1) assert.equal(isRateLimited('judge', start + i), false);
+    assert.equal(isRateLimited('judge', start + 61), true);
     assert.equal(isRateLimited('judge', start + 61_000), false);
+  });
+
+  it('forgets a caller whose window has emptied', () => {
+    const start = 2_000_000;
+    isRateLimited('one-off', start);
+    assert.ok(trackedClientKeys().includes('one-off'));
+    isRateLimited('other', start + 61_000);
+    assert.equal(trackedClientKeys().includes('one-off'), false);
+    assert.ok(trackedClientKeys().includes('other'));
   });
 });
 

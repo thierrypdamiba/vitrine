@@ -91,6 +91,15 @@ describe('search_products schema', () => {
       assert.equal(propertyNames.includes(field), false);
     }
   });
+
+  it('caps the enum lists at one of each allowed value', () => {
+    for (const key of ['features', 'colors'] as const) {
+      const property = CATALOG_SEARCH_INPUT_SCHEMA.properties[key];
+      assert.equal(property.type, 'array');
+      assert.equal(property.maxItems, property.items?.enum?.length);
+      assert.equal(property.uniqueItems, true);
+    }
+  });
 });
 
 describe('tool table', () => {

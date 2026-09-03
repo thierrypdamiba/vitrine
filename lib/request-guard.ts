@@ -1,12 +1,20 @@
 /**
  * The vault routes read the demo mailbox through the server's own Arcade user. They exist for
  * the page that serves them, so only same-origin browser requests may call them, and callers
- * are throttled so judging traffic cannot exhaust Arcade quota.
+ * are throttled so judging traffic cannot exhaust Arcade quota. Sixty a minute leaves room
+ * for a judge reloading the page and re-running the demo without meeting a 429.
  */
 const WINDOW_MS = 60_000;
-const MAX_PER_WINDOW = 20;
+export const MAX_PER_WINDOW = 60;
 const hits = new Map<string, number[]>();
 
+/**
+ * Browsers send Sec-Fetch-Site, which settles it. The Origin fallback is for older clients;
+ * a non-browser client can set a same-host Origin and pass. That is accepted on purpose: the
+ * routes behind this check answer with the shared demo mailbox's parsed facts and four status
+ * booleans, never a token, an authorization URL, or anything keyed to the caller, so the
+ * check bounds accidental cross-site use and quota, not secrecy.
+ */
 export function isSameOriginRequest(request: Request): boolean {
   const site = request.headers.get('sec-fetch-site');
   if (site) return site === 'same-origin';
@@ -20,10 +28,21 @@ export function isSameOriginRequest(request: Request): boolean {
 }
 
 export function isRateLimited(key: string, now = Date.now()): boolean {
-  const recent = (hits.get(key) ?? []).filter(at => now - at < WINDOW_MS);
+  // Prune every idle key on each call so the map never grows with one-off callers.
+  for (const [held, stamps] of hits) {
+    const live = stamps.filter(at => now - at < WINDOW_MS);
+    if (live.length === 0) hits.delete(held);
+    else if (live.length !== stamps.length) hits.set(held, live);
+  }
+  const recent = hits.get(key) ?? [];
   recent.push(now);
   hits.set(key, recent);
   return recent.length > MAX_PER_WINDOW;
+}
+
+/** Keys currently tracked; exported for the pruning test. */
+export function trackedClientKeys(): string[] {
+  return [...hits.keys()];
 }
 
 export function clientKey(request: Request): string {

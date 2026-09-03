@@ -200,14 +200,23 @@ function parseSize(value: unknown): CatalogSize | undefined {
     : undefined;
 }
 
+/**
+ * An enum list can hold at most one of each allowed value, so an array longer than the
+ * allowed set is rejected before it is walked (a 5,000-entry payload never reaches the
+ * adapter), and a short list that repeats a value collapses to one entry: the receipt shows
+ * ['waterproof'] for ['waterproof', 'waterproof']. The schema says the same with
+ * maxItems and uniqueItems (lib/webmcp.ts); this is the server-side check behind it.
+ */
 function parseStringList<T extends string>(value: unknown, allowed: Set<T>): T[] | undefined {
-  if (!Array.isArray(value) || value.length === 0) return undefined;
-  const parsed: T[] = [];
+  if (!Array.isArray(value) || value.length === 0 || value.length > allowed.size) {
+    return undefined;
+  }
+  const parsed = new Set<T>();
   for (const entry of value) {
     if (typeof entry !== 'string' || !allowed.has(entry as T)) return undefined;
-    parsed.push(entry as T);
+    parsed.add(entry as T);
   }
-  return parsed;
+  return [...parsed];
 }
 
 export function parsePublicBrief(input: unknown): ParseBriefResult {

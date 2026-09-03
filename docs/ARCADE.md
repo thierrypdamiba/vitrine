@@ -14,12 +14,19 @@ loads a labeled demo fixture and the shop searches a labeled recorded sample.
 
 The two `/api/arcade/*` routes serve only the page: `guardVaultRequest` rejects requests that are
 not same-origin (`Sec-Fetch-Site: same-origin` or a matching `Origin`) with 403, and throttles
-each client to 20 requests a minute with 429. They never trigger an authorization flow and never
+each client to 60 requests a minute with 429. They never trigger an authorization flow and never
 return an authorization URL; when Gmail is not authorized the server logs a warning and the page
 falls back to the fixture. Successful context and status responses are memoized for five minutes
 per isolate, so judging traffic reads the mailbox at most every five minutes.
 
 `/api/catalog/search` is not rate-limited (agents call it); a keyword cache is the quota guard.
+
+Walmart rows carry no image field. For each Walmart result the server reads the product page's
+`og:image` tag (`lib/product-images.ts`: walmart.com links only, 4 s timeout, at most 600 KB, only
+`walmartimages.com` hosts accepted) once per product before the result enters the six-hour cache.
+A photo that cannot be read leaves the card on its swatch; on a hosted worker Walmart may block
+datacenter addresses, in which case every card shows the swatch. Google Shopping rows link to
+search pages and are never fetched. The only input to that read is the merchant's own link.
 
 ## Exact Arcade inputs
 

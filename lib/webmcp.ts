@@ -74,6 +74,8 @@ export type JsonSchemaProperty = {
   enum?: string[];
   description: string;
   items?: { type: 'string'; enum?: string[] };
+  maxItems?: number;
+  uniqueItems?: boolean;
 };
 
 export type JsonSchema = {
@@ -134,11 +136,15 @@ export const CATALOG_SEARCH_INPUT_SCHEMA: JsonSchema = {
     features: {
       type: 'array',
       items: { type: 'string', enum: ['waterproof', 'packable'] },
+      maxItems: 2,
+      uniqueItems: true,
       description: 'Required catalog features. Every listed value must be present on a result.',
     },
     colors: {
       type: 'array',
       items: { type: 'string', enum: ['navy', 'olive'] },
+      maxItems: 2,
+      uniqueItems: true,
       description: 'Allowed catalog colors. A result matches when it comes in any listed color.',
     },
   },
