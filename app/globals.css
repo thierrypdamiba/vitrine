@@ -18,7 +18,5 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
-form:tool-form-active {
-  outline: light-dark(#1c1917, #fff) dashed 1px;
-  outline-offset: 4px;
-}
+/* WebMCP form-tool pseudo-classes are inlined in app/layout.tsx: the bundler's
+   CSS minifier does not know :tool-form-active yet and warns on every build. */
