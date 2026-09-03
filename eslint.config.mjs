@@ -7,7 +7,7 @@ const eslintConfig = defineConfig([
   ...safeword.configs.vendoredIgnores,
   ...nextVitals,
   ...nextTs,
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts']),
+  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts', '.claude/**']),
 ]);
 
 export default eslintConfig;
