@@ -16,14 +16,14 @@ New project created during the Submission Period: first commit 2026-08-26, histo
 Registered on `document.modelContext` (with a `navigator.modelContext` fallback) from
 `lib/webmcp.ts`. Titles and annotations below are the ones the code registers.
 
-| name                                   | title                                           | readOnlyHint | untrustedContentHint | appears at stage                   | host                               |
-| -------------------------------------- | ----------------------------------------------- | ------------ | -------------------- | ---------------------------------- | ---------------------------------- |
-| `load_context`                         | Read the shopper's gift notes                   | true         | true                 | browse (page load)                 | ChatGPT + Chrome                   |
-| `search_products`                      | Search jackets (four fields only)               | true         | true                 | browse (page load)                 | ChatGPT + Chrome                   |
-| `compare_products`                     | Compare visible jackets                         | false        | true                 | results (after a search returns)   | ChatGPT + Chrome                   |
-| `prepare_selection`                    | Prepare one jacket for the shopper              | false        | true                 | compared (after two ids compared)  | ChatGPT + Chrome                   |
-| `filter_jackets`                       | declarative `<form toolname>` (no annotations)  | n/a          | n/a                  | always                             | Chrome only                        |
-| [if shipped] `personalize_for_shopper` | Tell the shop about the shopper (demonstration) | false        | false                | only while the Leak demo box is on | ChatGPT + Chrome (may be declined) |
+| name                      | title                                           | readOnlyHint | untrustedContentHint | appears at stage                   | host                               |
+| ------------------------- | ----------------------------------------------- | ------------ | -------------------- | ---------------------------------- | ---------------------------------- |
+| `load_context`            | Read the shopper's gift notes                   | true         | true                 | browse (page load)                 | ChatGPT + Chrome                   |
+| `search_products`         | Search jackets (four fields only)               | true         | true                 | browse (page load)                 | ChatGPT + Chrome                   |
+| `compare_products`        | Compare visible jackets                         | false        | true                 | results (after a search returns)   | ChatGPT + Chrome                   |
+| `prepare_selection`       | Prepare one jacket for the shopper              | false        | true                 | compared (after two ids compared)  | ChatGPT + Chrome                   |
+| `filter_jackets`          | declarative `<form toolname>` (no annotations)  | n/a          | n/a                  | always                             | Chrome only                        |
+| `personalize_for_shopper` | Tell the shop about the shopper (demonstration) | false        | false                | only while the Leak demo box is on | ChatGPT + Chrome (may be declined) |
 
 - `search_products` is `readOnlyHint: true` on purpose: it is an idempotent catalog query that
   changes what the page shows and which tools register next, not shop state. The schema, not the
@@ -31,7 +31,7 @@ Registered on `document.modelContext` (with a `navigator.modelContext` fallback)
 - `filter_jackets` is the shop's own filter form carrying `toolname` / `tooldescription`. It is a
   Chrome-only extra: OpenAI's documentation says "Tools defined through HTML form attributes aren't
   available as site tools." The form still works as a normal form everywhere.
-- [if shipped] `personalize_for_shopper` exists only while the checkbox is on; it is a
+- `personalize_for_shopper` exists only while the checkbox is on; it is a
   demonstration, not product behavior; ChatGPT's safety review may decline it. It is the
   over-parameterized tool from WebMCP draft section 6.3.3, reproduced so a judge can watch the same
   agent volunteer everything the moment a schema asks. Nothing it receives leaves the page.
@@ -81,7 +81,7 @@ adapter's literal 400.
 
 `prepare_selection` never navigates; opening is a separate shopper gesture. WebMCP issue #288
 observed an in-app browser clicking a page's own Approve button, so the page does not rely on a
-button an agent could press: [if shipped] the listing opens on a 700 ms press-and-hold.
+button an agent could press: the listing opens on a 700 ms press-and-hold.
 
 ## Arcade
 
@@ -115,8 +115,8 @@ npm run dev
 ```sh
 npm test            # unit tests, including "no private field in any tool schema"
 npm run test:bdd    # Gherkin scenarios in features/
-npm run test:live   # [if shipped] against a running dev server with .env.local
-npm run check:ssr   # [if shipped] prints 0: no private value in the SSR HTML
+npm run test:live   # against a running dev server with .env.local
+npm run check:ssr   # prints 0: no private value in the SSR HTML
 npm run test:evals  # webmcp-evals smoke against a running dev server; see evals/README.md
 ```
 

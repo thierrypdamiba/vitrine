@@ -48,9 +48,8 @@ values of the accepted public brief and nothing else; the sidebar prints this ob
 `WALMART_ACCEPTS` in `lib/vitrine.ts`). Vitrine never fills `max_price`: the budget ranks results
 on the shopper's side after they return.
 
-Adapter order: [if shipped] Walmart first, Google Shopping fallback, decided by one real query on
-2026-09-03 (see "Hosted status" in `docs/SUBMISSION.md`); otherwise Google Shopping first, Walmart
-fallback. Live rows are [if shipped] filtered for women's, kids', and plus-size titles and rows
+Adapter order: Walmart first, Google Shopping fallback, decided by one real query on 2026-09-03
+(20 rows, 6 clean; see "Hosted status" in `docs/SUBMISSION.md`). Live rows are filtered for women's, kids', and plus-size titles and rows
 that match none of the brief; if fewer than three remain the route returns the recorded sample and
 labels it. Live and sample rows are never mixed.
 
@@ -98,7 +97,7 @@ cp .env.example .env.local
 | `ARCADE_CONTEXT_QUERY` | Gmail search query for the vault message. Optional; the default matches recent gift mail. |
 
 The same three values go in the hosted Site's settings. Google authorization is an owner-only step
-done outside the app (`npm run arcade:authorize` [if shipped]); the public routes never start it.
+done outside the app through the Arcade dashboard; the public routes never start it.
 
 Official references:
 

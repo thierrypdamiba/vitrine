@@ -1,8 +1,8 @@
 # Devpost submission
 
 Paste-ready material for the WebMCP Challenge entry. Every sentence here must be checkable against
-the deployed page the same night. Bracketed `[if shipped]` conditionals are struck at integration
-if the feature did not ship.
+the deployed page the same night. Bracketed `[if shipped]` conditionals were struck at integration
+(2026-09-03 12:15 PT); everything below shipped except the seeded Calendar event.
 
 ## Status
 
@@ -36,10 +36,29 @@ Recorded from the hosted page's browser console with
 - [WI-0] `____-__-__ __:__ PT` — `{ ... }` — `configured: true` means Sites forwards
   `process.env`; `configured: false` means the hosted page runs the labeled fixture and recorded
   sample, and every Arcade narration below is gated on that.
-- [WI-A2] Walmart probe `XL waterproof packable navy olive jacket`: `__` clean men's rows;
-  adapter order decided: `__________`.
-- [WI-OWNER] Calendar: `GoogleCalendar.ListEvents` authorized `yes/no`; `calendarSummary` starts
-  with `Scotland trip with Dad` `yes/no`.
+- [WI-A2] Walmart probe `XL waterproof packable navy olive jacket` (2026-09-03 ~12:10 PT): 20
+  rows, 6 clean men's rows; adapter order decided: `[Walmart, GoogleShopping]`, threshold 3.
+- [WI-OWNER] Calendar: `GoogleCalendar.ListEvents` authorized **yes** (local `/api/arcade/status`
+  at 12:12 PT: `{"configured":true,"gmailRead":true,"calendar":true,"shopping":true}`);
+  `calendarSummary` starts with `Scotland trip with Dad`: **no** (the demo calendar has no event
+  in the next 180 days; the vault shows nine facts, no Calendar row, until the owner creates
+  the event `Scotland trip with Dad`, Oct 10–17 2026, location Edinburgh).
+
+## Verified locally at integration (2026-09-03 12:13 PT, merged main, dev server on :3001)
+
+- `curl -s localhost:3001 | grep -c -w -E 'Dad|Scotland|October|250'` → `0`.
+- `POST /api/catalog/search` with the XL brief → 200, receipt keys exactly
+  `category, size, features, colors`, `merchant: walmart`, `arcadeRequest`
+  `{"tool":"Walmart.SearchProducts","input":{"keywords":"XL waterproof packable navy olive jacket"}}`,
+  8 items.
+- The same body plus `destination` → `400 {"error":"Merchant rejected unexpected fields: destination"}`.
+- `GET /api/arcade/status` (same-origin) → `{"configured":true,"gmailRead":true,"calendar":true,"shopping":true}`;
+  without the header → 403.
+- `POST /api/arcade/context` (same-origin) → 200, `context.source: "arcade"`, no URL in the body,
+  `calendarSummary` absent (no event on the demo calendar); without the header → 403.
+- `npm run test:evals` (webmcp-evals 0.0.4 smoke, Puppeteer Chrome, no LLM) → 2/2 steps PASS:
+  `load_context` returned `source: "arcade"`, `search_products` returned the four-key receipt and
+  the Walmart Arcade request (captured in `evals/README.md`).
 
 ## Verified on host
 
@@ -86,7 +105,7 @@ or three visible jackets; the shopper can pick items to compare by hand, and hum
 selections gate the agent's `prepare_selection`. `prepare_selection` never navigates: opening the
 listing is a separate held gesture on the page, because a filed WebMCP issue (#288) shows an
 in-app browser clicking a page's own Approve button. Tools appear as the page state changes, and
-the sidebar lists what the agent can call right now. [If shipped:] An opt-in "Leak demo" checkbox
+the sidebar lists what the agent can call right now. An opt-in "Leak demo" checkbox
 registers `personalize_for_shopper`, the spec's over-parameterized tool, so a judge can watch the
 same agent and prompt volunteer everything the moment a schema asks, while the strict request
 still carries four keys. Before WebMCP, an agent shopping on your behalf either typed your life
@@ -105,7 +124,7 @@ form tools). Server side, `parsePublicBrief` re-validates and rejects unknown ke
 keyword string is built only from validated enum values; Walmart's `max_price` is never sent;
 unit tests assert no private field appears in any tool schema and that the Arcade input object has
 exactly one key. Arcade runs only on the server (Gmail.SearchEmailsByQuery,
-[GoogleCalendar.ListEvents,] Walmart.SearchProducts / GoogleShopping.SearchProducts); the API key
+GoogleCalendar.ListEvents, Walmart.SearchProducts / GoogleShopping.SearchProducts); the API key
 never reaches the browser, the routes are same-origin-gated and rate-limited, and the judging path
 needs no credentials. Evals ship in the webmcp-evals format. Stack: Next.js 16 on vinext, React
 19, TypeScript, Arcade SDK; node:test and Cucumber. New project created during the Submission
@@ -128,7 +147,7 @@ Enable site tools) or in Chrome 149+ with `chrome://flags/#enable-webmcp-testing
    and the literal 400. The grid and receipt do not change.
 5. If ChatGPT declines `load_context`, use this fallback prompt instead: "He is XL, likes navy or
    olive, needs waterproof and packable". The receipt still shows four keys.
-6. [If shipped:] The **Leak demo** checkbox at the bottom of the sidebar is a demonstration of the
+6. The **Leak demo** checkbox at the bottom of the sidebar is a demonstration of the
    spec's over-parameterized tool; it is off by default and nothing it receives leaves the page.
    ChatGPT's safety review may decline it.
 
@@ -148,8 +167,7 @@ narrate a refusal if it happened.
 - 0:00–0:12 Hosted URL open, sidebar visible: seam 0 / 0, vault Sealed, ARCADE rows read aloud
   exactly as shown, 12-jacket browse grid. Press Enter on the pre-typed prompt. "This is a jacket
   shop that never learns why you are shopping. The prompt says nothing about who it's for."
-- 0:12–0:30 `load_context` fires; the vault fills, pilled "from Arcade Gmail" [Calendar row if
-  shipped]; seam "Agent knows 9 facts"; activity "agent · load_context → Gmail.SearchEmailsByQuery".
+- 0:12–0:30 `load_context` fires; the vault fills, pilled "from Arcade Gmail"; seam "Agent knows 9 facts"; activity "agent · load_context → Gmail.SearchEmailsByQuery".
   "The agent just read my gift notes from Gmail through Arcade, on the server. Nine facts. Now
   watch what the shop gets."
 - 0:30–0:55 `search_products` fires; grid narrows; SHOP RECEIVED prints the four-key body and
