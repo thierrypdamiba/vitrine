@@ -19,7 +19,7 @@ merchant requests.
 
 **Avoid:** Client-authored claims about what another boundary received.
 
-**Evidence:** The merchant panel renders received fields from the merchant response.
+**Evidence:** The sidebar's "Shop received" block renders the accepted body echoed by the server, and the seam counts are computed from it.
 
 ## Keep the judging path reliable
 

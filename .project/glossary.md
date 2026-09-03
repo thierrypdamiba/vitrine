@@ -30,10 +30,12 @@ evidence.
 **Definition:** The visible split between vault facts and the merchant receipt. Private values appear
 only in the vault.
 
-## Guided demo
+## Credential-free path
 
-**Definition:** A credential-free run that loads the vault, waits for the shopper to share the
-public brief, then searches with the same command used by WebMCP.
+**Definition:** The run that works without Arcade: `load_context` (or the shopper's "Load gift
+notes" button) fills the vault from the labeled demo fixture, and `search_products` (or the filter
+form) searches the labeled recorded sample through the same `runVitrineSearch` command. Superseded
+on 2026-09-03: the earlier "Guided demo" button and shopper-submitted sharing step.
 
 ## Arcade context provider
 

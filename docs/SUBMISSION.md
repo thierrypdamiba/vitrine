@@ -1,91 +1,202 @@
 # Devpost submission
 
-Draft material for the WebMCP Challenge entry. Paste-ready; edit in place.
+Paste-ready material for the WebMCP Challenge entry. Every sentence here must be checkable against
+the deployed page the same night. Bracketed `[if shipped]` conditionals are struck at integration
+if the feature did not ship.
 
 ## Status
 
-| Required                                                   | State                                                                |
-| ---------------------------------------------------------- | -------------------------------------------------------------------- |
-| Public repository with source, assets, setup               | push this repo to GitHub, public                                     |
-| Open-source license visible at repo root                   | `LICENSE` (MIT)                                                      |
-| Testing instructions incl. agents/clients used             | `README.md` → "Test the WebMCP tools"                                |
-| Working live URL (ChatGPT in-app browser or Chrome + flag) | deploy from ChatGPT Sites, set visibility to public, paste URL below |
-| YouTube demo, under 3 minutes, with audio                  | record; script below                                                 |
-| Text description                                           | below                                                                |
+| Required                                                   | State                                                        |
+| ---------------------------------------------------------- | ------------------------------------------------------------ |
+| Public repository with source, assets, setup               | https://github.com/thierrypdamiba/vitrine (public, MIT)      |
+| Open-source license visible at repo root                   | `LICENSE` (MIT)                                              |
+| Testing instructions incl. agents/clients used             | below, and `README.md` → "Test the WebMCP tools"             |
+| Working live URL (ChatGPT in-app browser or Chrome + flag) | deploy from ChatGPT Sites, audience "Anyone on the internet" |
+| YouTube demo, under 3 minutes, with audio                  | shot list below                                              |
+| Text description                                           | below                                                        |
 
 Live URL: _____
 
 Video URL: _____
+
+Submitted commit (`git rev-parse HEAD`): _____
 
 ## Deadline
 
 Devpost posted "Deadline Extension | 12 more hours" on Sep 3 (~10:20am PT, ChatGPT outage):
 **submissions close Sep 4, 2026, 1:00am PT.** The rules text still prints Sep 3 1:00pm PT, so
 mark the entry **Submitted** (green, not draft) as early as possible; edits stay open until the
-form closes.
+form closes. A saved draft is not a submission.
+
+## Hosted status
+
+Recorded from the hosted page's browser console with
+`fetch('/api/arcade/status').then(r=>r.json())` (same-origin, passes the request guard).
+
+- [WI-0] `____-__-__ __:__ PT` — `{ ... }` — `configured: true` means Sites forwards
+  `process.env`; `configured: false` means the hosted page runs the labeled fixture and recorded
+  sample, and every Arcade narration below is gated on that.
+- [WI-A2] Walmart probe `XL waterproof packable navy olive jacket`: `__` clean men's rows;
+  adapter order decided: `__________`.
+- [WI-OWNER] Calendar: `GoogleCalendar.ListEvents` authorized `yes/no`; `calendarSummary` starts
+  with `Scotland trip with Dad` `yes/no`.
+
+## Verified on host
+
+Written by integration from the ~16:30 check in ChatGPT desktop (GPT-5.6 Sol, site tools on),
+running the agent prompt on the owner-only deploy:
+
+- `__:__` "Available site tools" on load shows: `__________`
+- `__:__` after `search_products`, `compare_products` callable in the same conversation: `yes/no`
+  → `REGISTER_ALL_AT_MOUNT` = `__________`
+- `__:__` confirmation prompts on `load_context` / `search_products`: `__________`
+- `__:__` the host clicked a page button by itself: `yes/no`
+- `__:__` leak prompt with `personalize_for_shopper`: `volunteered / refused / not run`
 
 ## Text description
 
-**Vitrine — a shop that never learns why you are shopping.**
+**Vitrine — a jacket shop that never learns why you are shopping.**
 
-_Why WebMCP._ An agent that shops for you knows things a merchant should not: who the gift is
-for, where they are going, when, and how much you can spend. Today that context leaks through
-the only channel available, a free-text search box. WebMCP lets a page publish tools with
-typed schemas, so a merchant can say exactly what it accepts. Vitrine's `search_products`
-takes `category`, `size`, `features`, `colors`. There is no field for the occasion, so the
-occasion cannot be sent.
+**Why WebMCP fits.** An agent that shops for you knows things a merchant should not: who the gift
+is for, where they are going, when, and what you can spend. Through a search box that context
+leaks by default, and the WebMCP draft names the failure mode in §6.3.3, "Privacy Leakage Through
+Over-Parameterization": a site can publish a tool that asks for age, location, and history "for
+personalization," and the agent helpfully fills it in. WebMCP is the first surface where a merchant
+can say exactly what it accepts, in a typed schema, on the page the shopper is looking at.
+Vitrine's `search_products` accepts `category`, `size`, `features`, `colors` (enums,
+`additionalProperties: false`). There is no field for the occasion, so the occasion cannot be
+sent, and the server returns HTTP 400 for any extra key before any inventory is searched. No
+sponsor example addresses this; Vitrine makes it the product.
 
-_What people and agents do together._ The shopper's private context (Dad, a rainy October trip to Scotland, a $250 ceiling) lives with the agent, never with the shop. The agent searches; the shopper sees the catalog update live and can use the same filters by hand. The agent compares two or three visible items, and the shopper confirms before any listing opens. Budget ranking happens on the shopper's side, never at the merchant.
+**How it creates a better user experience.** The shop starts sealed: the sidebar reads "Agent
+knows 0 facts / Shop received 0 fields." The agent calls `load_context` and the vault fills with
+nine facts read from the shopper's Gmail through Arcade on the server (labeled "from Arcade
+Gmail"; a labeled demo fixture when Arcade is not connected). The agent calls `search_products`;
+the grid narrows and the sidebar prints the literal request body the merchant adapter accepted,
+"200 · accepted," and the counter flips to "9 / 4." Beside it is the exact Arcade call the adapter
+made — `{"tool":"Walmart.SearchProducts","input":{"keywords":"XL waterproof packable navy olive jacket"}}`
+— and one sentence: Walmart's tool accepts `max_price`; Vitrine leaves it empty, and the $250
+ceiling ranks results on the shopper's side after they return. One click on "Try to leak" sends
+destination and budget on purpose and prints the adapter's 400. Nothing on that screen is the
+agent's word for it; every number is derived from a request the server received.
 
-_How it improves the experience._ The sidebar shows the split as it happens: what the agent
-kept, what the merchant received. The merchant receipt is derived from the request the catalog
-adapter actually got, not from what the agent claims it sent. A judge can read both in one
-screen and verify the boundary held.
+**What people and agents do together that was difficult before.** The agent reads the shopper's
+private notes (Gmail via Arcade), searches the shop through a four-field schema, and compares two
+or three visible jackets; the shopper can pick items to compare by hand, and human-picked
+selections gate the agent's `prepare_selection`. `prepare_selection` never navigates: opening the
+listing is a separate held gesture on the page, because a filed WebMCP issue (#288) shows an
+in-app browser clicking a page's own Approve button. Tools appear as the page state changes, and
+the sidebar lists what the agent can call right now. [If shipped:] An opt-in "Leak demo" checkbox
+registers `personalize_for_shopper`, the spec's over-parameterized tool, so a judge can watch the
+same agent and prompt volunteer everything the moment a schema asks, while the strict request
+still carries four keys. Before WebMCP, an agent shopping on your behalf either typed your life
+into a search box or could not act on the page at all.
 
-_How WebMCP was implemented._ Three imperative tools registered with `document.modelContext.registerTool` (`search_products`, `compare_products`, `prepare_selection`), the API ChatGPT's in-app browser supports. In Chrome the shop's own filter form also carries `toolname`/`tooldescription` (`filter_jackets`) as a progressive enhancement, so the human controls and the agent tools are the same surface.
-Tools are registered progressively: compare and prepare only appear after a search returns,
-so the agent's available actions track the page state. `prepare_selection` is marked
-`untrusted` so the shopper confirms before the listing opens. Schemas use enums and bounded
-arrays; a unit test asserts no tool schema contains a private field. The catalog adapter can
-call Arcade (Google Shopping / Walmart) or a labeled recorded sample; the judging path needs
-no credentials.
-
-Stack: Next.js 16 on vinext, React 19, TypeScript, Arcade SDK. Tests: node:test, Cucumber.
-
-New project created during the Submission Period: first commit 2026-08-26, history unmodified.
+**How WebMCP was implemented.** Four imperative tools on `document.modelContext.registerTool`
+(with a `navigator.modelContext` fallback), registered through a per-tool `AbortController`
+registry that registers each name once per session, tolerates `InvalidStateError`, and drives the
+sidebar strip from `toolchange` + `getTools()` where the host supports them: `load_context`
+(readOnlyHint true, untrustedContentHint true), `search_products` (readOnlyHint true; the schema,
+not the hint, is the safety property), `compare_products` and `prepare_selection` (readOnlyHint
+false, untrustedContentHint true). Every tool has a title, state-aware `{error, hint}` results,
+and a 1,500-character output budget. The shop's filter form also carries
+`toolname`/`toolparamdescription` as a Chrome-only enhancement (ChatGPT's browser does not expose
+form tools). Server side, `parsePublicBrief` re-validates and rejects unknown keys; the Arcade
+keyword string is built only from validated enum values; Walmart's `max_price` is never sent;
+unit tests assert no private field appears in any tool schema and that the Arcade input object has
+exactly one key. Arcade runs only on the server (Gmail.SearchEmailsByQuery,
+[GoogleCalendar.ListEvents,] Walmart.SearchProducts / GoogleShopping.SearchProducts); the API key
+never reaches the browser, the routes are same-origin-gated and rate-limited, and the judging path
+needs no credentials. Evals ship in the webmcp-evals format. Stack: Next.js 16 on vinext, React
+19, TypeScript, Arcade SDK; node:test and Cucumber. New project created during the Submission
+Period: first commit 2026-08-26, history unmodified.
 
 ## Testing instructions (private Devpost field)
 
 No login. Open the live URL in the ChatGPT desktop app's in-app browser (Plus/Pro/Business plan;
 not Enterprise/Edu; model GPT-5.6 Sol or Terra, not Luna; Settings > Browser > Permissions >
-Enable site tools) or in Chrome 149+ with `chrome://flags/#enable-webmcp-testing`. Click **Copy
-agent prompt**, paste it to the agent. Tools: `search_products`, `compare_products`,
-`prepare_selection` on `document.modelContext`. The judging path needs no credentials; Arcade
-live shopping and the Gmail vault are optional and labeled when active.
+Enable site tools) or in Chrome 149+ with `chrome://flags/#enable-webmcp-testing`.
 
-## Video script (under 3 minutes)
+1. The page loads sealed: "Agent knows 0 facts / Shop received 0 fields", the vault reads
+   "Sealed", the grid shows the browse catalog. No search has run yet.
+2. Click **Copy agent prompt** and paste it into the agent. The prompt contains no private fact.
+3. The agent calls `load_context` (vault fills, labeled "from Arcade Gmail" or "demo fixture"),
+   then `search_products` (grid narrows; **Shop received** prints the accepted body with
+   "200 · accepted by the merchant adapter" and the exact Arcade call), then `compare_products`
+   and `prepare_selection`. Open the listing yourself.
+4. Click **Try to leak**: the sidebar shows the body it sent with `destination` and `budgetUsd`
+   and the literal 400. The grid and receipt do not change.
+5. If ChatGPT declines `load_context`, use this fallback prompt instead: "He is XL, likes navy or
+   olive, needs waterproof and packable". The receipt still shows four keys.
+6. [If shipped:] The **Leak demo** checkbox at the bottom of the sidebar is a demonstration of the
+   spec's over-parameterized tool; it is off by default and nothing it receives leaves the page.
+   ChatGPT's safety review may decline it.
 
-0:00 Open the live URL. "This is a jacket shop. The agent knows I'm buying for Dad, for
-Scotland, in October, under $250. Watch what the shop learns."
-0:20 Paste the prompt. Point at the sidebar: "Agent kept" lists what stays private.
-0:50 `search_products` fires. Catalog updates. Point at the merchant receipt: jacket, XL,
-waterproof, packable, navy, olive. "No Dad. No Scotland. No budget."
-1:30 Compare two. Prepare selection. Confirm. Listing opens.
-2:10 Show `lib/webmcp.ts` schema and the test that scans for private fields.
-2:40 "WebMCP made this possible because the merchant publishes a schema, not a search box."
+The ARCADE panel shows real connected states from `GET /api/arcade/status`. When Arcade is not
+configured on the host, the page says so and runs the labeled demo fixture and recorded sample.
+Tools: `load_context`, `search_products`, `compare_products`, `prepare_selection` on
+`document.modelContext`; `filter_jackets` is a Chrome-only declarative form.
+
+## Video shot list (under 2:55)
+
+1440x900, ChatGPT desktop in-app browser filling the frame with the sidebar visible, prompt
+pre-typed in the composer, own voice or TTS, no music, no logos. Keep any live-listing shot under
+two seconds; never open walmart.com or google.com on camera; the sidebar's "Exact Arcade call"
+text is the Arcade evidence. Drop any beat whose feature did not ship or that the host refused;
+narrate a refusal if it happened.
+
+- 0:00–0:12 Hosted URL open, sidebar visible: seam 0 / 0, vault Sealed, ARCADE rows read aloud
+  exactly as shown, 12-jacket browse grid. Press Enter on the pre-typed prompt. "This is a jacket
+  shop that never learns why you are shopping. The prompt says nothing about who it's for."
+- 0:12–0:30 `load_context` fires; the vault fills, pilled "from Arcade Gmail" [Calendar row if
+  shipped]; seam "Agent knows 9 facts"; activity "agent · load_context → Gmail.SearchEmailsByQuery".
+  "The agent just read my gift notes from Gmail through Arcade, on the server. Nine facts. Now
+  watch what the shop gets."
+- 0:30–0:55 `search_products` fires; grid narrows; SHOP RECEIVED prints the four-key body and
+  "200 · accepted"; seam 9 / 4; Exact Arcade call `{"tool":"...","input":{"keywords":"XL
+waterproof packable navy olive jacket"}}` and the `max_price` line. "Four fields. The search ran
+  through Arcade with one string. That tool would take a price ceiling. We never send it; the
+  budget ranks results here, after they come back."
+- 0:55–1:15 Click Try to leak: the sent body in red, then `→ 400 {"error":"Merchant rejected
+unexpected fields: destination, budgetUsd"}`; grid and receipt unchanged. "Not a request for
+  discretion. search_products has no field for Scotland, and the adapter refuses anything extra
+  before any search runs. The schema is the boundary, not the model's manners."
+- 1:15–1:40 AGENT CAN CALL NOW as compare_products and prepare_selection appear (or "four tools,
+  state-aware errors" if REGISTER_ALL_AT_MOUNT shipped). Agent compares two, prepares one; [Your
+  pick panel; hold to open]. "prepare_selection never navigates. Opening is a separate held
+  gesture, because issue #288 showed an in-app browser clicking a page's own Approve button."
+- 1:40–2:10 [Only if rehearsed:] Leak demo on, leak prompt; `personalize_for_shopper` receives the
+  facts, the seam's third number turns red, the strict receipt still shows four keys; narrate
+  whichever actually happened, including a refusal. Fallback beat: Chrome 149 DevTools WebMCP
+  panel showing search_products' Input column with exactly four keys.
+- 2:10–2:40 Code: `lib/webmcp.ts` tool table and annotation rationale, `CATALOG_SEARCH_INPUT_SCHEMA`
+  with `additionalProperties: false` and enums, the tests "no private field in any tool schema"
+  and "sends only keywords to Arcade"; spec §6.3.3 on screen. "The spec names this attack and
+  lists no site-side fix. A schema with no room is the fix, and the receipt lets you check it."
+- 2:40–2:55 Close on the seam. "Agent knows 9. Shop received 4." End card: hosted URL ·
+  github.com/thierrypdamiba/vitrine · MIT.
 
 ## Before the deadline
 
-1. Push to GitHub, public. Confirm the MIT license badge shows in the About panel.
-2. Deploy with ChatGPT Sites (ChatGPT web or desktop, not the CLI): open the Sites project
-   for `.openai/hosting.json`'s `project_id`, add hosted secrets `ARCADE_API_KEY`,
-   `ARCADE_USER_ID`, `ARCADE_CONTEXT_QUERY` in the Site's settings, then ask ChatGPT to
-   "Deploy this project with Sites" (save a version, then deploy it).
-3. In the Site's sharing settings set the audience to **Anyone on the internet**. Owner-only
-   or workspace-only fails judging. Open the URL in a private window while signed out.
-4. Record and upload the video as public (not unlisted).
-5. Fill the Devpost form with the description, URLs, and testing note above.
-6. Freeze the repo, site, and entry until judging ends (September 21).
+1. Push to GitHub, public. Confirm the MIT license shows in the About panel while signed out.
+2. Deploy with ChatGPT Sites (ChatGPT web or desktop, not the CLI): open the Sites project for
+   `.openai/hosting.json`'s `project_id`, add hosted secrets `ARCADE_API_KEY`, `ARCADE_USER_ID`,
+   `ARCADE_CONTEXT_QUERY` in the Site's settings, then "Deploy this project with Sites".
+3. Set the audience to **Anyone on the internet** only after the route lock (no authorization
+   URL in any response) is in the deployed build. Open the URL in a private window while signed
+   out and run `fetch('/api/arcade/status')` from the page console.
+4. Hedge-submit at ~19:00 with the current description, repo URL, and hosted URL; a saved draft is
+   not a submission.
+5. Record and upload the video as Public (not unlisted). Fill the Devpost form with the
+   description, URLs, three screenshots (ChatGPT "Available site tools" menu with the titles;
+   Chrome DevTools WebMCP panel showing search_products' Input with four keys; the sidebar seam
+   with the exact Arcade call and the 400 line), and the private testing instructions.
+6. Press Submit and confirm the green "Submitted" state by 23:30 PT with the buffer intact.
+
+## Freeze rule
+
+After the final Submit: no commits, no redeploys, no video swaps, no entry edits until judging
+ends on Sep 21, 2026 5pm PT. Keep building on a fork if you want to keep building.
 
 Source: https://learn.chatgpt.com/docs/sites (Sites is available on Plus, Pro, Business,
 Enterprise and Edu plans).
