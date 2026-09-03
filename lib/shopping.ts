@@ -29,7 +29,6 @@ const MAX_FILTERED_ITEMS = 8;
  */
 export const MIN_LIVE_ROWS = 3;
 
-const SIZE_TOKEN = /\b(XS|S|M|L|XL)\b/;
 const EXCLUDED_TITLE =
   /\b(women|womens|women's|ladies|girls?|kids?|boys?|youth|toddler|plus[- ]size|1x|2x|3x)\b/i;
 
@@ -49,9 +48,25 @@ export function buildArcadeShoppingInput(merchantQuery: string): { keywords: str
   return { keywords: merchantQuery };
 }
 
+/** Letter sizes are case-sensitive on purpose: the "s" in "Men's" is not a size. */
+const SIZE_LETTERS = /\b(XS|XL|S|M|L)\b/;
+const SIZE_WORDS: Array<[RegExp, CatalogSize]> = [
+  [/\b(?:x-small|extra small)\b/i, 'XS'],
+  [/\b(?:x-large|extra large)\b/i, 'XL'],
+  [/\blarge\b/i, 'L'],
+  [/\bmedium\b/i, 'M'],
+  [/\bsmall\b/i, 'S'],
+];
+
 function sizeFromText(text: string): CatalogSize | undefined {
-  const match = SIZE_TOKEN.exec(text);
-  return match ? (match[1] as CatalogSize) : undefined;
+  // Marketplace titles write "X-Large" as often as "XL"; longer forms are tested first so
+  // "extra large" never reads as L.
+  const letters = SIZE_LETTERS.exec(text);
+  if (letters) return letters[1] as CatalogSize;
+  for (const [pattern, size] of SIZE_WORDS) {
+    if (pattern.test(text)) return size;
+  }
+  return undefined;
 }
 
 /**

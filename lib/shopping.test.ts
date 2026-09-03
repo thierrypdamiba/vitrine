@@ -308,3 +308,17 @@ describe('filterRowsForBrief size contradiction', () => {
     assert.deepEqual(kept.sort(), ['b', 'c']);
   });
 });
+
+describe('sizeFromText via parseShoppingProducts', () => {
+  it('reads XL, X-Large, and Extra Large as XL and Large as L', () => {
+    const rows = [
+      'Shell XL',
+      'Storm Jacket, Olive, X-Large',
+      'Extra Large Anorak',
+      'Large Rain Coat',
+      'Small Parka',
+    ].map((title, index) => ({ title, price: '$10', link: `u${index}`, item_id: String(index) }));
+    const sizes = parseShoppingProducts({ products: rows }, 'walmart').map(item => item.size);
+    assert.deepEqual(sizes, ['XL', 'XL', 'XL', 'L', 'S']);
+  });
+});
