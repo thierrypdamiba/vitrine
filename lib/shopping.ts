@@ -6,6 +6,7 @@ import {
   readArcadeConfig,
   type ArcadeTools,
 } from './arcade-client.ts';
+import { attachProductImages } from './product-images.ts';
 import {
   rankItemsByBrief,
   type ArcadeRequest,
@@ -285,6 +286,8 @@ export async function searchLiveProducts(
     userId?: string;
     signal?: AbortSignal;
     brief?: PublicBrief;
+    /** Fetch used for product photos (walmart.com page reads); tests pass a stub. */
+    imageFetch?: typeof fetch;
   } = {},
 ): Promise<LiveSearchResult | null> {
   if (options.signal?.aborted) {
@@ -313,6 +316,12 @@ export async function searchLiveProducts(
       const items = options.brief ? filterRowsForBrief(parsed, options.brief) : parsed;
       const enough = options.brief ? items.length >= MIN_LIVE_ROWS : items.length > 0;
       if (enough) {
+        // Walmart rows carry no image field; their product pages carry og:image. Photos are
+        // read once here, before the result is cached, so every cache hit ships them too.
+        // The read uses only the merchant's own product link, never the brief.
+        if (attempt.merchant === 'walmart') {
+          await attachProductImages(items, { concurrency: 6, fetch: options.imageFetch });
+        }
         return remember(merchantQuery, {
           items,
           merchant: attempt.merchant,

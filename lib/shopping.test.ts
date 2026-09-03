@@ -9,9 +9,15 @@ import {
   parseShoppingProducts,
   searchLiveProducts,
 } from './shopping.ts';
+import { clearProductImageMemo } from './product-images.ts';
 import { publicBriefFromFixture, type CatalogItem } from './vitrine.ts';
 
 const XL_QUERY = 'XL waterproof packable navy olive jacket';
+const OG_IMAGE = 'https://i5.walmartimages.com/seo/Storm-Rain-Jacket_be500fdd.png';
+
+/** Stands in for walmart.com so tests never read product pages over the network. */
+const imageFetch: typeof fetch = async () =>
+  new Response(`<html><head><meta property="og:image" content="${OG_IMAGE}"/></head></html>`);
 
 function walmartRow(item_id: string, title: string, value = 49.99) {
   return {
@@ -162,7 +168,10 @@ describe('parseShoppingProducts with live Arcade shapes', () => {
 });
 
 describe('searchLiveProducts', () => {
-  beforeEach(() => clearLiveCache());
+  beforeEach(() => {
+    clearLiveCache();
+    clearProductImageMemo();
+  });
 
   it('sends only keywords to Arcade', async () => {
     assert.deepEqual(Object.keys(buildArcadeShoppingInput(XL_QUERY)), ['keywords']);
@@ -172,6 +181,7 @@ describe('searchLiveProducts', () => {
       tools: spy.tools as never,
       userId: 'shopper-1',
       brief: publicBriefFromFixture(),
+      imageFetch,
     });
     assert.equal(spy.calls.length, 1);
     assert.equal(spy.calls[0]?.tool_name, 'Walmart.SearchProducts');
@@ -187,6 +197,32 @@ describe('searchLiveProducts', () => {
     assert.equal(result?.merchant, 'walmart');
     assert.equal(result?.items[0]?.id.startsWith('walmart-'), true);
     assert.equal(result?.items[0]?.url.startsWith('https://www.walmart.com/ip/'), true);
+    assert.ok(result?.items.every(item => item.imageUrl === OG_IMAGE));
+  });
+
+  it('caches results with their photos and keeps a card without one at imageUrl empty', async () => {
+    let pageReads = 0;
+    const flaky: typeof fetch = async input => {
+      pageReads += 1;
+      if (String(input).endsWith('/ip/4')) return new Response('', { status: 403 });
+      return imageFetch(input);
+    };
+    const spy = spyTools();
+    const options = {
+      tools: spy.tools as never,
+      userId: 'shopper-1',
+      brief: publicBriefFromFixture(),
+      imageFetch: flaky,
+    };
+    const first = await searchLiveProducts(XL_QUERY, options);
+    const second = await searchLiveProducts(XL_QUERY, options);
+    assert.equal(pageReads, first?.items.length);
+    const olive = first?.items.find(item => item.url.endsWith('/ip/4'));
+    assert.equal(olive?.imageUrl, '');
+    assert.ok(
+      first?.items.filter(item => item !== olive).every(item => item.imageUrl === OG_IMAGE),
+    );
+    assert.deepEqual(second?.items, first?.items);
   });
 
   it("filters women's, kids, and unrelated rows", () => {
@@ -237,6 +273,7 @@ describe('searchLiveProducts', () => {
       tools: spy.tools as never,
       userId: 'shopper-1',
       brief: publicBriefFromFixture(),
+      imageFetch,
     });
     assert.equal(result, null);
     assert.deepEqual(
@@ -251,6 +288,7 @@ describe('searchLiveProducts', () => {
       tools: spy.tools as never,
       userId: 'shopper-1',
       brief: publicBriefFromFixture(),
+      imageFetch,
     };
     const first = await searchLiveProducts(XL_QUERY, options);
     const second = await searchLiveProducts(XL_QUERY, options);

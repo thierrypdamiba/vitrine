@@ -21,6 +21,13 @@ per isolate, so judging traffic reads the mailbox at most every five minutes.
 
 `/api/catalog/search` is not rate-limited (agents call it); a keyword cache is the quota guard.
 
+Walmart rows carry no image field. For each Walmart result the server reads the product page's
+`og:image` tag (`lib/product-images.ts`: walmart.com links only, 4 s timeout, at most 600 KB, only
+`walmartimages.com` hosts accepted) once per product before the result enters the six-hour cache.
+A photo that cannot be read leaves the card on its swatch; on a hosted worker Walmart may block
+datacenter addresses, in which case every card shows the swatch. Google Shopping rows link to
+search pages and are never fetched. The only input to that read is the merchant's own link.
+
 ## Exact Arcade inputs
 
 `Gmail.SearchEmailsByQuery` (`lib/arcade.ts`):
