@@ -7,7 +7,8 @@ website prevail if they disagree with this summary.
 ## Schedule
 
 - Submission period opened August 25, 2026 at 11:00 a.m. Pacific Time.
-- Submissions close September 3, 2026 at 1:00 p.m. Pacific Time.
+- Submissions were to close September 3, 2026 at 1:00 p.m. Pacific Time; Devpost extended the
+  deadline by 12 hours on September 3 (ChatGPT outage) to September 4, 2026 at 1:00 a.m. PT.
 - Judging runs September 4 through September 21, 2026.
 - Winners are expected around September 23, 2026.
 - Do not change the submitted repository, live site, or Devpost entry after the submission deadline

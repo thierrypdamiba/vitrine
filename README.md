@@ -6,6 +6,9 @@ budget. `search_products` only accepts `jacket`, `XL`, `waterproof`, `packable`,
 
 You do not need a Shopify store. This page is the shop.
 
+New project created during the WebMCP Challenge submission period: first commit 2026-08-26,
+history unmodified. Tool registration lives in `lib/webmcp.ts`.
+
 ## Run it
 
 Requires Node 22.13+.
@@ -26,9 +29,12 @@ npm run build
 
 ## Test the WebMCP tools
 
-Clients used: ChatGPT's in-app browser, and Chrome 149+ with
-`chrome://flags/#enable-webmcp-testing` enabled. Without a WebMCP client the page still
-works as a normal shop; the sidebar reports whether `navigator.modelContext` was found.
+Clients used: ChatGPT's in-app browser (desktop app, Plus/Pro plan, GPT-5.6 Sol or Terra, site
+tools enabled under Settings > Browser > Permissions), and Chrome 149+ with
+`chrome://flags/#enable-webmcp-testing` enabled. ChatGPT's browser discovers only tools
+registered with `document.modelContext.registerTool`; the declarative `filter_jackets` form is
+a Chrome-only extra. Without a WebMCP client the page still
+works as a normal shop; the sidebar reports whether `document.modelContext` was found.
 
 1. Open the live URL in a WebMCP-enabled browser. The catalog loads from a recorded sample.
 2. Click **Copy agent prompt** in the sidebar and paste it into the agent.

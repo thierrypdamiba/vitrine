@@ -19,8 +19,10 @@ Video URL: _____
 
 ## Deadline
 
-Official rules (section 12.4: rules prevail over marketing and website): **September 3, 2026,
-1:00 p.m. Pacific Time.** The Devpost header shows a later time; do not rely on it.
+Devpost posted "Deadline Extension | 12 more hours" on Sep 3 (~10:20am PT, ChatGPT outage):
+**submissions close Sep 4, 2026, 1:00am PT.** The rules text still prints Sep 3 1:00pm PT, so
+mark the entry **Submitted** (green, not draft) as early as possible; edits stay open until the
+form closes.
 
 ## Text description
 
@@ -40,7 +42,7 @@ kept, what the merchant received. The merchant receipt is derived from the reque
 adapter actually got, not from what the agent claims it sent. A judge can read both in one
 screen and verify the boundary held.
 
-_How WebMCP was implemented._ Three imperative tools registered via `navigator.modelContext` (`search_products`, `compare_products`, `prepare_selection`) plus one declarative tool (`filter_jackets`, the shop's own filter form carrying `toolname`/`tooldescription`), so the human controls and the agent tools are the same surface.
+_How WebMCP was implemented._ Three imperative tools registered with `document.modelContext.registerTool` (`search_products`, `compare_products`, `prepare_selection`), the API ChatGPT's in-app browser supports. In Chrome the shop's own filter form also carries `toolname`/`tooldescription` (`filter_jackets`) as a progressive enhancement, so the human controls and the agent tools are the same surface.
 Tools are registered progressively: compare and prepare only appear after a search returns,
 so the agent's available actions track the page state. `prepare_selection` is marked
 `untrusted` so the shopper confirms before the listing opens. Schemas use enums and bounded
@@ -49,6 +51,17 @@ call Arcade (Google Shopping / Walmart) or a labeled recorded sample; the judgin
 no credentials.
 
 Stack: Next.js 16 on vinext, React 19, TypeScript, Arcade SDK. Tests: node:test, Cucumber.
+
+New project created during the Submission Period: first commit 2026-08-26, history unmodified.
+
+## Testing instructions (private Devpost field)
+
+No login. Open the live URL in the ChatGPT desktop app's in-app browser (Plus/Pro/Business plan;
+not Enterprise/Edu; model GPT-5.6 Sol or Terra, not Luna; Settings > Browser > Permissions >
+Enable site tools) or in Chrome 149+ with `chrome://flags/#enable-webmcp-testing`. Click **Copy
+agent prompt**, paste it to the agent. Tools: `search_products`, `compare_products`,
+`prepare_selection` on `document.modelContext`. The judging path needs no credentials; Arcade
+live shopping and the Gmail vault are optional and labeled when active.
 
 ## Video script (under 3 minutes)
 
