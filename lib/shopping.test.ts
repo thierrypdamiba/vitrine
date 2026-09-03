@@ -1,8 +1,55 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { describe, it } from 'node:test';
+import { beforeEach, describe, it } from 'node:test';
 
-import { parseShoppingProducts } from './shopping.ts';
+import {
+  buildArcadeShoppingInput,
+  clearLiveCache,
+  filterRowsForBrief,
+  parseShoppingProducts,
+  searchLiveProducts,
+} from './shopping.ts';
+import { publicBriefFromFixture, type CatalogItem } from './vitrine.ts';
+
+const XL_QUERY = 'XL waterproof packable navy olive jacket';
+
+function walmartRow(item_id: string, title: string, value = 49.99) {
+  return {
+    item_id,
+    title,
+    link: `https://www.walmart.com/ip/${item_id}`,
+    price: { currency: null, value },
+    rating: 4.3,
+    seller: { name: 'Walmart' },
+  };
+}
+
+const LIVE_WALMART_ROWS = [
+  walmartRow('1', 'Packable Rain Jacket for Women Waterproof Raincoats with Hood Navy Blue XL'),
+  walmartRow('2', 'Origin Packable Waterproof Jacket - Purple - XL'),
+  walmartRow('3', 'Plus Size Womens Rain Jacket with Hood Packable Lightweight'),
+  walmartRow('4', "Men's Storm Rain Jacket, Olive, X-Large"),
+  walmartRow('5', "Men's Waterproof Rain Jacket - Lightweight Hooded Navy, XL"),
+  walmartRow('6', 'Kids Puffer Jacket Navy Size M'),
+  walmartRow('7', 'Ceramic Coffee Mug 12 oz'),
+  walmartRow('8', "Men's Stadium Packable Windbreaker Jacket"),
+];
+
+function spyTools(rows: unknown[] = LIVE_WALMART_ROWS) {
+  const calls: Array<{ tool_name: string; input: Record<string, unknown> }> = [];
+  return {
+    calls,
+    tools: {
+      async get() {
+        return {};
+      },
+      async execute(request: { tool_name: string; input: Record<string, unknown> }) {
+        calls.push({ tool_name: request.tool_name, input: request.input });
+        return { success: true, output: { value: { products: rows } } };
+      },
+    },
+  };
+}
 
 describe('parseShoppingProducts', () => {
   it('maps Google Shopping rows into catalog cards', () => {
@@ -111,6 +158,107 @@ describe('parseShoppingProducts with live Arcade shapes', () => {
       'https://www.walmart.com/ip/Packable-Rain-Jacket-Navy-Blue-XL/20841112033',
     );
     assert.deepEqual(items[0]?.features, ['waterproof', 'packable']);
+  });
+});
+
+describe('searchLiveProducts', () => {
+  beforeEach(() => clearLiveCache());
+
+  it('sends only keywords to Arcade', async () => {
+    assert.deepEqual(Object.keys(buildArcadeShoppingInput(XL_QUERY)), ['keywords']);
+
+    const spy = spyTools();
+    const result = await searchLiveProducts(XL_QUERY, {
+      tools: spy.tools as never,
+      userId: 'shopper-1',
+      brief: publicBriefFromFixture(),
+    });
+    assert.equal(spy.calls.length, 1);
+    assert.equal(spy.calls[0]?.tool_name, 'Walmart.SearchProducts');
+    assert.deepEqual(spy.calls[0]?.input, { keywords: XL_QUERY });
+    for (const key of ['max_price', 'min_price', 'sort_by']) {
+      assert.equal(key in (spy.calls[0]?.input ?? {}), false);
+    }
+    assert.deepEqual(result?.arcadeRequest, {
+      tool: 'Walmart.SearchProducts',
+      input: { keywords: XL_QUERY },
+    });
+    assert.equal(result?.cached, false);
+    assert.equal(result?.merchant, 'walmart');
+    assert.equal(result?.items[0]?.id.startsWith('walmart-'), true);
+    assert.equal(result?.items[0]?.url.startsWith('https://www.walmart.com/ip/'), true);
+  });
+
+  it("filters women's, kids, and unrelated rows", () => {
+    const rows = parseShoppingProducts({ products: LIVE_WALMART_ROWS }, 'walmart');
+    const kept = filterRowsForBrief(rows, publicBriefFromFixture());
+    const titles = kept.map(item => item.name);
+    assert.deepEqual(
+      titles.sort(),
+      [
+        "Men's Stadium Packable Windbreaker Jacket",
+        "Men's Storm Rain Jacket, Olive, X-Large",
+        "Men's Waterproof Rain Jacket - Lightweight Hooded Navy, XL",
+        'Origin Packable Waterproof Jacket - Purple - XL',
+      ].sort(),
+    );
+    assert.equal(kept[0]?.name, "Men's Waterproof Rain Jacket - Lightweight Hooded Navy, XL");
+    assert.equal(kept[0]?.size, 'XL');
+    assert.equal(kept.length <= 8, true);
+  });
+
+  it('keeps at most eight rows in brief order', () => {
+    const items: CatalogItem[] = Array.from({ length: 12 }, (_, index) => ({
+      id: `row-${index}`,
+      name: index % 2 ? `Navy shell ${index}` : `Waterproof packable navy olive XL shell ${index}`,
+      priceUsd: 100 + index,
+      imageUrl: '',
+      merchantName: 'Walmart',
+      rating: null,
+      url: 'https://example.com',
+      features: index % 2 ? [] : ['waterproof', 'packable'],
+      colors: index % 2 ? ['navy'] : ['navy', 'olive'],
+      size: index % 2 ? undefined : 'XL',
+    }));
+    const kept = filterRowsForBrief(items, publicBriefFromFixture());
+    assert.equal(kept.length, 8);
+    assert.deepEqual(
+      kept.map(item => item.id),
+      ['row-0', 'row-2', 'row-4', 'row-6', 'row-8', 'row-10', 'row-1', 'row-3'],
+    );
+  });
+
+  it('returns null below the threshold instead of mixing live and sample rows', async () => {
+    const spy = spyTools([
+      walmartRow('1', "Men's Storm Rain Jacket, Olive, X-Large"),
+      walmartRow('2', 'Ceramic Coffee Mug 12 oz'),
+    ]);
+    const result = await searchLiveProducts(XL_QUERY, {
+      tools: spy.tools as never,
+      userId: 'shopper-1',
+      brief: publicBriefFromFixture(),
+    });
+    assert.equal(result, null);
+    assert.deepEqual(
+      spy.calls.map(call => call.tool_name),
+      ['Walmart.SearchProducts', 'GoogleShopping.SearchProducts'],
+    );
+  });
+
+  it('second call with the same keywords does not call execute again', async () => {
+    const spy = spyTools();
+    const options = {
+      tools: spy.tools as never,
+      userId: 'shopper-1',
+      brief: publicBriefFromFixture(),
+    };
+    const first = await searchLiveProducts(XL_QUERY, options);
+    const second = await searchLiveProducts(XL_QUERY, options);
+    assert.equal(spy.calls.length, 1);
+    assert.equal(first?.cached, false);
+    assert.equal(second?.cached, true);
+    assert.deepEqual(second?.items, first?.items);
+    assert.deepEqual(second?.arcadeRequest, first?.arcadeRequest);
   });
 });
 
