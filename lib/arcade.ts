@@ -255,7 +255,8 @@ function textFromEmail(email: Record<string, unknown>): string | null {
 function contextRecordFromToolValue(value: unknown, contextQuery: string): string {
   if (typeof value === 'string' && value.trim()) return value;
   if (!isRecord(value)) {
-    throw new ArcadeContextError(`No Gmail message matched ${contextQuery}`);
+    console.warn(`Vitrine: no Gmail message matched ${contextQuery}`);
+    throw new ArcadeContextError('No shopping context found in the demo mailbox.');
   }
 
   const collections = [value.emails, value.messages, value.threads, value.items];
@@ -278,7 +279,8 @@ function contextRecordFromToolValue(value: unknown, contextQuery: string): strin
     if (texts.length > 0) return texts.join('\n');
   }
 
-  throw new ArcadeContextError(`No Gmail message matched ${contextQuery}`);
+  console.warn(`Vitrine: no Gmail message matched ${contextQuery}`);
+  throw new ArcadeContextError('No shopping context found in the demo mailbox.');
 }
 
 function calendarSummaryFromValue(value: unknown): string | undefined {

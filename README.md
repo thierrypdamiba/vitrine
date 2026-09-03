@@ -134,7 +134,9 @@ Luna, site tools enabled under Settings > Browser > Permissions), and Chrome 149
    **Shop received**: the accepted body, `200 · accepted by the merchant adapter`, and the exact
    Arcade call beside it.
 5. Click **Try to leak** to see the 400.
-6. The agent calls `compare_products`, then `prepare_selection`. Open the listing yourself.
+6. The agent calls `compare_products`, then `prepare_selection`. Open the listing yourself: on live
+   results that is a 700 ms press-and-hold; the sample catalog has no external listing, so the
+   "Your pick" panel is the listing.
 
 If the agent declines `load_context`, use the fallback prompt: "He is XL, likes navy or olive,
 needs waterproof and packable."

@@ -183,7 +183,7 @@ unexpected fields: destination, budgetUsd"}`; grid and receipt unchanged. "Not a
   state-aware errors" if REGISTER_ALL_AT_MOUNT shipped). Agent compares two, prepares one; [Your
   pick panel; hold to open]. "prepare_selection never navigates. Opening is a separate held
   gesture, because issue #288 showed an in-app browser clicking a page's own Approve button."
-- 1:40–2:10 [Only if rehearsed:] Leak demo on, leak prompt; `personalize_for_shopper` receives the
+- 1:40–2:10 Leak demo on, leak prompt; `personalize_for_shopper` receives the
   facts, the seam's third number turns red, the strict receipt still shows four keys; narrate
   whichever actually happened, including a refusal. Fallback beat: Chrome 149 DevTools WebMCP
   panel showing search_products' Input column with exactly four keys.

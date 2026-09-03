@@ -219,3 +219,19 @@ describe('Arcade tool boundary', () => {
     );
   });
 });
+
+describe('Arcade context errors', () => {
+  it('never echoes the configured Gmail query into the error message', async () => {
+    const tools = {
+      get: async () => ({
+        requirements: { met: true, authorization: { token_status: 'completed' } },
+      }),
+      authorize: async () => ({ status: 'completed' }),
+      execute: async () => ({ success: true, output: { value: { emails: [] } } }),
+    } as unknown as Parameters<typeof loadPrivateContextFromArcade>[0];
+    await assert.rejects(
+      loadPrivateContextFromArcade(tools, { contextQuery: 'subject:"secret query"', userId: 'u' }),
+      (error: Error) => !error.message.includes('secret query'),
+    );
+  });
+});

@@ -75,7 +75,7 @@ const fullHandlers = {
 };
 
 describe('search_products schema', () => {
-  it('excludes every private-context field', () => {
+  it('no private field in any tool schema', () => {
     const tool = catalogSearchToolDefinition(async () => 'ok');
     assert.equal(tool.name, CATALOG_SEARCH_TOOL_NAME);
     assert.equal(tool.name, 'search_products');
