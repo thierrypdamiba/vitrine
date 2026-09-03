@@ -267,15 +267,41 @@ export function catalogSearchToolDefinition(
   });
 }
 
+const INPUT_NOT_JSON: ToolMessage = {
+  error: 'Input must be a JSON object.',
+  hint: 'Pass the arguments as an object (or a JSON string encoding one).',
+};
+
+/**
+ * Some hosts hand `execute` the arguments as a JSON string rather than an object.
+ * Parse that form once here so every tool sees an object; an unparseable string
+ * gets the usual { error, hint } answer and never reaches the tool body.
+ */
+export function normalizeToolInput(
+  input: unknown,
+): { ok: true; input: unknown } | { ok: false; output: string } {
+  if (typeof input !== 'string') return { ok: true, input };
+  try {
+    return { ok: true, input: JSON.parse(input) as unknown };
+  } catch {
+    return { ok: false, output: toolError(INPUT_NOT_JSON) };
+  }
+}
+
 function tool(
   definition: Omit<ModelContextTool, 'annotations'> & { readOnly?: boolean; untrusted?: boolean },
 ): ModelContextTool {
-  const { readOnly, untrusted, ...rest } = definition;
+  const { readOnly, untrusted, execute, ...rest } = definition;
   return {
     ...rest,
     annotations: {
       readOnlyHint: readOnly === true,
       untrustedContentHint: untrusted === true,
+    },
+    execute: (input, extras) => {
+      const normalized = normalizeToolInput(input);
+      if (!normalized.ok) return normalized.output;
+      return execute(normalized.input, extras);
     },
   };
 }
@@ -287,6 +313,94 @@ export function detectModelContext(
   // ChatGPT's browser and Chrome expose document.modelContext; some hosts and
   // older builds only expose the navigator alias.
   return documentLike?.modelContext ?? navigatorLike?.modelContext ?? null;
+}
+
+export const MODEL_CONTEXT_POLL_MS = 500;
+export const MODEL_CONTEXT_POLL_TIMEOUT_MS = 10_000;
+
+/**
+ * Some hosts inject modelContext after first paint. Poll `detect` every
+ * intervalMs for up to timeoutMs (Cloudflare's hook uses the same pattern) and
+ * resolve with the first host found, or null when none appears or the signal
+ * aborts. Every probe is guarded: a host whose getter throws counts as absent.
+ */
+export function waitForModelContext(
+  detect: () => ModelContext | null,
+  options: { signal: AbortSignal; intervalMs?: number; timeoutMs?: number },
+): Promise<ModelContext | null> {
+  const intervalMs = options.intervalMs ?? MODEL_CONTEXT_POLL_MS;
+  const timeoutMs = options.timeoutMs ?? MODEL_CONTEXT_POLL_TIMEOUT_MS;
+  const probe = (): ModelContext | null => {
+    try {
+      return detect();
+    } catch {
+      return null;
+    }
+  };
+  const found = probe();
+  if (found || options.signal.aborted || timeoutMs <= 0) return Promise.resolve(found);
+
+  return new Promise(resolve => {
+    const started = Date.now();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const finish = (value: ModelContext | null) => {
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+      options.signal.removeEventListener('abort', onAbort);
+      resolve(value);
+    };
+    const onAbort = () => finish(null);
+    const tick = () => {
+      timer = null;
+      const next = probe();
+      if (next) return finish(next);
+      if (Date.now() - started >= timeoutMs) return finish(null);
+      timer = setTimeout(tick, intervalMs);
+    };
+    options.signal.addEventListener('abort', onAbort, { once: true });
+    timer = setTimeout(tick, intervalMs);
+  });
+}
+
+/**
+ * Mirror the host's own tool list through `toolchange` + `getTools()` when the
+ * host exposes them. Every call into the host is guarded: ChatGPT's browser has
+ * thrown a TypeError from addEventListener, and a throwing observer must never
+ * block registration or unmount the page. On any failure the callback receives
+ * null and the page falls back to its own registry. Returns a cleanup.
+ */
+export function observeHostTools(
+  modelContext: ModelContext,
+  onNames: (names: string[] | null) => void,
+): () => void {
+  const read = () => {
+    try {
+      const getTools = modelContext.getTools;
+      if (typeof getTools !== 'function') return onNames(null);
+      void Promise.resolve(getTools.call(modelContext))
+        .then(tools => onNames(tools.map(tool => tool.name).sort()))
+        .catch(() => onNames(null));
+    } catch {
+      onNames(null);
+    }
+  };
+  let listening = false;
+  try {
+    if (typeof modelContext.addEventListener === 'function') {
+      modelContext.addEventListener('toolchange', read);
+      listening = true;
+    }
+  } catch {
+    onNames(null);
+  }
+  return () => {
+    if (!listening) return;
+    try {
+      modelContext.removeEventListener?.('toolchange', read);
+    } catch {
+      // A host that cannot remove a listener has nothing left to observe.
+    }
+  };
 }
 
 declare global {
