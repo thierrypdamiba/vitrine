@@ -418,6 +418,25 @@ export function handleCatalogSearch(body: unknown): CatalogSearchResponse {
   };
 }
 
+/**
+ * Order live merchant rows by how well their listing text honors the public brief.
+ * Keyword search engines return loose matches; the shop should show the ones that
+ * actually carry the requested size, features, and colors first. Ties keep merchant order.
+ */
+export function rankItemsByBrief(items: CatalogItem[], brief: PublicBrief): CatalogItem[] {
+  const score = (item: CatalogItem): number => {
+    const text = item.name.toLowerCase();
+    const sizeHit = new RegExp(`\\b${brief.size.toLowerCase()}\\b`).test(text) ? 1 : 0;
+    const featureHits = brief.features.filter(feature => item.features.includes(feature)).length;
+    const colorHits = brief.colors.filter(color => item.colors.includes(color)).length;
+    return featureHits * 2 + colorHits * 2 + sizeHit;
+  };
+  return items
+    .map((item, index) => ({ item, index, score: score(item) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map(entry => entry.item);
+}
+
 export async function handleMerchantSearch(
   body: unknown,
   options: {
@@ -437,7 +456,7 @@ export async function handleMerchantSearch(
       return {
         ...parsed,
         merchant: live.merchant,
-        items: live.items,
+        items: rankItemsByBrief(live.items, parsed.receipt),
       };
     }
   }

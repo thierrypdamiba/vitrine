@@ -16,6 +16,8 @@ import {
   searchInventory,
   viewFromSearch,
   withheldFacts,
+  rankItemsByBrief,
+  type CatalogItem,
 } from './vitrine.ts';
 
 const fixtureBrief = publicBriefFromFixture();
@@ -108,6 +110,33 @@ describe('vault and merchant views', () => {
     assert.deepEqual(
       Object.keys(view.merchant.receipt ?? {}).sort(),
       [...PUBLIC_BRIEF_FIELDS].sort(),
+    );
+  });
+});
+
+describe('rankItemsByBrief', () => {
+  it('puts listings that honor size, features, and colors first without dropping the rest', () => {
+    const base = { priceUsd: 50, imageUrl: '', merchantName: 'x', rating: null, url: 'u' };
+    const items: CatalogItem[] = [
+      { ...base, id: 'a', name: 'Black Puffer 1X Womens', features: [], colors: [] },
+      {
+        ...base,
+        id: 'b',
+        name: 'Navy Packable Rain Jacket XL',
+        features: ['waterproof', 'packable'],
+        colors: ['navy'],
+      },
+      { ...base, id: 'c', name: 'Olive Shell', features: ['waterproof'], colors: ['olive'] },
+    ];
+    const ranked = rankItemsByBrief(items, {
+      category: 'jacket',
+      size: 'XL',
+      features: ['waterproof', 'packable'],
+      colors: ['navy', 'olive'],
+    });
+    assert.deepEqual(
+      ranked.map(item => item.id),
+      ['b', 'c', 'a'],
     );
   });
 });
