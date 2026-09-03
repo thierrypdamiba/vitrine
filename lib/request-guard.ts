@@ -46,3 +46,27 @@ export function guardVaultRequest(request: Request): Response | null {
   }
   return null;
 }
+
+/**
+ * Per-isolate promise memo shared by the Arcade routes and the catalog cache. Workers
+ * isolates each hold their own copy, so this bounds upstream calls per isolate, not globally.
+ * Only fulfilled promises stay cached: a rejection evicts its entry so the next caller retries.
+ */
+const memos = new Map<string, { expires: number; promise: Promise<unknown> }>();
+
+export function memo<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
+  const now = Date.now();
+  const held = memos.get(key);
+  if (held && held.expires > now) return held.promise as Promise<T>;
+
+  const entry = { expires: now + ttlMs, promise: fn() };
+  memos.set(key, entry);
+  entry.promise.catch(() => {
+    if (memos.get(key) === entry) memos.delete(key);
+  });
+  return entry.promise;
+}
+
+export function clearMemo(): void {
+  memos.clear();
+}

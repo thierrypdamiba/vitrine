@@ -42,6 +42,21 @@ describe('POST /api/catalog/search', () => {
     assert.ok(payload.items.length > 0);
     assert.equal('destination' in payload.receipt, false);
     assert.equal('budgetUsd' in payload.receipt, false);
+    assert.equal(payload.merchant, 'recorded_sample');
+    assert.equal('arcadeRequest' in payload, false);
+    assert.equal('cached' in payload, false);
+    assert.equal(JSON.stringify(payload).includes('budget'), false);
+  });
+
+  it('rejects destination and budget together, naming both fields in order', async () => {
+    const response = await postCatalog({
+      ...publicBriefFromFixture(),
+      destination: 'Scotland',
+      budgetUsd: 250,
+    });
+    assert.equal(response.status, 400);
+    const payload = (await response.json()) as { error: string };
+    assert.equal(payload.error, 'Merchant rejected unexpected fields: destination, budgetUsd');
   });
 
   it('rejects a private destination without searching inventory', async () => {

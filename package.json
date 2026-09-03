@@ -15,8 +15,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip",
-    "test": "node --import tsx --test lib/*.test.ts app/api/catalog/search/route.test.ts",
-    "test:bdd": "cucumber-js"
+    "test": "node --import tsx --test lib/*.test.ts app/api/catalog/search/route.test.ts app/api/arcade/context/route.test.ts app/api/arcade/status/route.test.ts",
+    "test:bdd": "cucumber-js",
+    "test:live": "tsx scripts/live-check.mts"
   },
   "dependencies": {
     "@arcadeai/arcadejs": "^2.4.1",

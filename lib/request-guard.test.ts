@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { beforeEach, describe, it } from 'node:test';
 
-import { isRateLimited, isSameOriginRequest } from './request-guard.ts';
+import { clearMemo, isRateLimited, isSameOriginRequest, memo } from './request-guard.ts';
 
 describe('vault request guard', () => {
   it('accepts same-origin fetches and rejects cross-site or headerless callers', () => {
@@ -19,5 +19,31 @@ describe('vault request guard', () => {
     for (let i = 0; i < 20; i += 1) assert.equal(isRateLimited('judge', start + i), false);
     assert.equal(isRateLimited('judge', start + 21), true);
     assert.equal(isRateLimited('judge', start + 61_000), false);
+  });
+});
+
+describe('memo', () => {
+  beforeEach(() => clearMemo());
+
+  it('does not invoke fn again within the ttl', async () => {
+    let calls = 0;
+    const load = () => {
+      calls += 1;
+      return Promise.resolve({ calls });
+    };
+    assert.deepEqual(await memo('key', 60_000, load), { calls: 1 });
+    assert.deepEqual(await memo('key', 60_000, load), { calls: 1 });
+    assert.equal(calls, 1);
+  });
+
+  it('evicts a rejected promise so the next call retries', async () => {
+    let calls = 0;
+    const load = () => {
+      calls += 1;
+      return calls === 1 ? Promise.reject(new Error('down')) : Promise.resolve('up');
+    };
+    await assert.rejects(() => memo('flaky', 60_000, load), /down/);
+    assert.equal(await memo('flaky', 60_000, load), 'up');
+    assert.equal(calls, 2);
   });
 });

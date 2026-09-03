@@ -6,12 +6,69 @@ import {
   readArcadeConfig,
   type ArcadeTools,
 } from './arcade-client.ts';
-import type { CatalogItem, MerchantSource } from './vitrine.ts';
+import {
+  rankItemsByBrief,
+  type ArcadeRequest,
+  type CatalogItem,
+  type CatalogSize,
+  type MerchantSource,
+  type PublicBrief,
+} from './vitrine.ts';
 
 export const ARCADE_SHOPPING_TOOL = 'GoogleShopping.SearchProducts';
 export const ARCADE_WALMART_TOOL = 'Walmart.SearchProducts';
 
-const MAX_LIVE_ITEMS = 8;
+/** Rows parsed per adapter call; filterRowsForBrief needs material to work with. */
+const MAX_LIVE_ITEMS = 40;
+/** Rows shown after filtering. */
+const MAX_FILTERED_ITEMS = 8;
+/**
+ * Fewer usable rows than this and the adapter reports nothing, so the route falls back to
+ * the recorded sample with an honest label. One live Walmart probe on 2026-09-03 returned
+ * 6 clean rows of 20 for the XL brief, so the threshold stays at 3.
+ */
+export const MIN_LIVE_ROWS = 3;
+
+const SIZE_TOKEN = /\b(XS|S|M|L|XL)\b/;
+const EXCLUDED_TITLE =
+  /\b(women|womens|women's|ladies|girls?|kids?|boys?|youth|toddler|plus[- ]size|1x|2x|3x)\b/i;
+
+export type LiveSearchResult = {
+  items: CatalogItem[];
+  merchant: MerchantSource;
+  arcadeRequest: ArcadeRequest;
+  cached: boolean;
+};
+
+/**
+ * The whole Arcade input. Both SERP tools take `keywords`; Walmart.SearchProducts would also
+ * take max_price, min_price, and sort_by, and this is the only place the shop builds that
+ * object, so a test can assert its keys are exactly ['keywords'].
+ */
+export function buildArcadeShoppingInput(merchantQuery: string): { keywords: string } {
+  return { keywords: merchantQuery };
+}
+
+function sizeFromText(text: string): CatalogSize | undefined {
+  const match = SIZE_TOKEN.exec(text);
+  return match ? (match[1] as CatalogSize) : undefined;
+}
+
+/**
+ * Keep only rows a shopper with this brief would recognize: no women's, kids', or plus-size
+ * listings, and at least one feature, color, or the requested size in the title. Best matches
+ * first, at most eight.
+ */
+export function filterRowsForBrief(items: CatalogItem[], brief: PublicBrief): CatalogItem[] {
+  const relevant = items.filter(item => {
+    if (EXCLUDED_TITLE.test(item.name)) return false;
+    const featureHits = brief.features.some(feature => item.features.includes(feature));
+    const colorHits = brief.colors.some(color => item.colors.includes(color));
+    const sizeHit = item.size === brief.size;
+    return featureHits || colorHits || sizeHit;
+  });
+  return rankItemsByBrief(relevant, brief).slice(0, MAX_FILTERED_ITEMS);
+}
 
 function parsePriceUsd(value: unknown): number | null {
   if (isRecord(value)) {
@@ -117,8 +174,12 @@ export function parseShoppingProducts(value: unknown, merchant: MerchantSource):
     const merchantName =
       firstString(row.source, row.merchant, seller, row.seller_name, offer.seller) ??
       (merchant === 'walmart' ? 'Walmart' : 'Google Shopping');
-    items.push({
-      id: firstString(row.product_id, row.id) ?? slugId(name, index),
+    const walmartId =
+      merchant === 'walmart' && (typeof row.item_id === 'string' || typeof row.item_id === 'number')
+        ? `walmart-${row.item_id}`
+        : null;
+    const item: CatalogItem = {
+      id: walmartId ?? firstString(row.product_id, row.id) ?? slugId(name, index),
       name,
       priceUsd,
       imageUrl: imageUrl ?? '',
@@ -127,7 +188,10 @@ export function parseShoppingProducts(value: unknown, merchant: MerchantSource):
       url: url ?? `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(name)}`,
       features: featuresFromText(name),
       colors: colorsFromText(name),
-    });
+    };
+    const size = sizeFromText(name);
+    if (size) item.size = size;
+    items.push(item);
     if (items.length >= MAX_LIVE_ITEMS) break;
   }
   return items;
@@ -143,37 +207,58 @@ async function executeProductSearch(
   // `keywords` and nothing else from the shopper. Walmart also accepts max_price; it is
   // deliberately left empty so the budget never reaches the merchant. A retry with another
   // key can never succeed and would only burn a metered execution.
-  const attempts: Record<string, string>[] = [{ keywords: merchantQuery }];
+  const input = buildArcadeShoppingInput(merchantQuery);
   let lastError: unknown;
-  for (const input of attempts) {
-    try {
-      const response = await tools.execute({
-        tool_name: toolName,
-        user_id: userId,
-        input,
-      });
-      const authorization = response.output?.authorization;
-      if (authorization && authorization.status !== 'completed') {
-        throw new ArcadeAuthorizationRequired(authorization.url);
-      }
-      if (response.success === true) {
-        return response.output?.value;
-      }
-      lastError = response.output;
-    } catch (error) {
-      lastError = error;
+  try {
+    const response = await tools.execute({
+      tool_name: toolName,
+      user_id: userId,
+      input,
+    });
+    const authorization = response.output?.authorization;
+    if (authorization && authorization.status !== 'completed') {
+      throw new ArcadeAuthorizationRequired(authorization.url);
     }
+    if (response.success === true) {
+      return response.output?.value;
+    }
+    lastError = response.output;
+  } catch (error) {
+    lastError = error;
   }
   throw lastError instanceof Error
     ? lastError
     : new ArcadeContextError('Arcade product search failed');
 }
 
-const LIVE_CACHE_TTL_MS = 5 * 60 * 1000;
-const liveCache = new Map<
-  string,
-  { expires: number; value: { items: CatalogItem[]; merchant: MerchantSource } | null }
->();
+/**
+ * The public brief has five sizes, three feature sets, and three color sets: at most 45
+ * distinct keyword strings, so the cache stays tiny and nothing shopper-specific is stored.
+ * Hits last six hours; a miss (null) is retried after a minute.
+ */
+const LIVE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const NULL_CACHE_TTL_MS = 60 * 1000;
+const liveCache = new Map<string, { expires: number; value: LiveSearchResult | null }>();
+
+export function clearLiveCache(): void {
+  liveCache.clear();
+}
+
+function remember(merchantQuery: string, value: LiveSearchResult | null): LiveSearchResult | null {
+  const ttl = value ? LIVE_CACHE_TTL_MS : NULL_CACHE_TTL_MS;
+  liveCache.set(merchantQuery, { expires: Date.now() + ttl, value });
+  return value;
+}
+
+/**
+ * Walmart first: its rows carry real product links and its tool is the one that would have
+ * accepted max_price, which makes the empty field worth showing. Google Shopping is the
+ * fallback, then the recorded sample.
+ */
+const ATTEMPTS: ReadonlyArray<{ tool: ArcadeRequest['tool']; merchant: MerchantSource }> = [
+  { tool: ARCADE_WALMART_TOOL, merchant: 'walmart' },
+  { tool: ARCADE_SHOPPING_TOOL, merchant: 'google_shopping' },
+];
 
 export async function searchLiveProducts(
   merchantQuery: string,
@@ -181,8 +266,9 @@ export async function searchLiveProducts(
     tools?: ArcadeTools;
     userId?: string;
     signal?: AbortSignal;
+    brief?: PublicBrief;
   } = {},
-): Promise<{ items: CatalogItem[]; merchant: MerchantSource } | null> {
+): Promise<LiveSearchResult | null> {
   if (options.signal?.aborted) {
     throw new DOMException('The operation was aborted.', 'AbortError');
   }
@@ -192,34 +278,34 @@ export async function searchLiveProducts(
   const userId = options.userId ?? config?.userId;
   if (!tools || !userId) return null;
 
-  // Cache only the environment-backed path. The key is the public keyword string, so
-  // nothing shopper-specific is ever stored.
-  const cacheable = !options.tools;
-  const cached = cacheable ? liveCache.get(merchantQuery) : undefined;
-  if (cached && cached.expires > Date.now()) return cached.value;
+  const cached = liveCache.get(merchantQuery);
+  if (cached && cached.expires > Date.now()) {
+    return cached.value ? { ...cached.value, cached: true } : null;
+  }
 
-  const attempts: Array<{ tool: string; merchant: MerchantSource }> = [
-    { tool: ARCADE_SHOPPING_TOOL, merchant: 'google_shopping' },
-    { tool: ARCADE_WALMART_TOOL, merchant: 'walmart' },
-  ];
-
-  for (const attempt of attempts) {
+  for (const attempt of ATTEMPTS) {
     if (options.signal?.aborted) {
       throw new DOMException('The operation was aborted.', 'AbortError');
     }
     try {
       const value = await executeProductSearch(tools, userId, attempt.tool, merchantQuery);
-      const items = parseShoppingProducts(value, attempt.merchant);
-      if (items.length > 0) {
-        const found = { items, merchant: attempt.merchant };
-        if (cacheable)
-          liveCache.set(merchantQuery, { expires: Date.now() + LIVE_CACHE_TTL_MS, value: found });
-        return found;
+      const parsed = parseShoppingProducts(value, attempt.merchant);
+      // Live rows and the recorded sample never mix: too few usable rows means this adapter
+      // contributed nothing, and the next one (or the sample) answers alone.
+      const items = options.brief ? filterRowsForBrief(parsed, options.brief) : parsed;
+      const enough = options.brief ? items.length >= MIN_LIVE_ROWS : items.length > 0;
+      if (enough) {
+        return remember(merchantQuery, {
+          items,
+          merchant: attempt.merchant,
+          arcadeRequest: { tool: attempt.tool, input: buildArcadeShoppingInput(merchantQuery) },
+          cached: false,
+        });
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') throw error;
     }
   }
 
-  return null;
+  return remember(merchantQuery, null);
 }
