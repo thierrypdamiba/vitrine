@@ -13,6 +13,15 @@ The agent belongs to the person, not the shop. It translates private reasons ("D
 October, rainy, $250") into neutral catalog attributes on the person's side; the shop only
 publishes a schema and shows a receipt of what it received. There is no site chatbot.
 
+The shop is a real storefront. When the server has an Arcade key, the grid fills with live
+inventory before any shopper request: the page runs the storefront's own default query (size M,
+`STOREFRONT_DEFAULT_BRIEF` in `lib/session.ts`) as soon as the status route says shopping is
+available, labeled "storefront default, no shopper request yet", and the seam stays at 0 / 0
+because only shopper requests count. Walmart rows carry real product photos (read server-side from
+each product page's `og:image`, cached) and real walmart.com links; Google Shopping rows keep a
+color swatch and link to a Google Shopping search. Without a key the grid shows the labeled
+12-jacket recorded sample.
+
 Judging in 60 seconds: [JUDGE.md](JUDGE.md).
 
 New project created during the Submission Period: first commit 2026-08-26, history unmodified.
@@ -83,8 +92,11 @@ highly parameterized WebMCP tools to extract sensitive user data that agents pro
 personalization context," creating a "personalization-to-fingerprinting pipeline." Vitrine inverts
 it. The guarantees are layered:
 
-1. `search_products` schema: enums only, `additionalProperties: false`, four required keys.
-2. `execute` re-validates with `parsePublicBrief` before any request leaves the page.
+1. `search_products` schema: enums only, `additionalProperties: false`, four required keys;
+   `features` and `colors` carry `maxItems: 2` and `uniqueItems: true`.
+2. `execute` re-validates with `parsePublicBrief` before any request leaves the page. An enum
+   array longer than its allowed set is rejected before it is walked, and repeats collapse to one
+   entry (`["waterproof", "waterproof"]` becomes `["waterproof"]` in the receipt).
 3. Server: `POST /api/catalog/search` runs `parsePublicBrief` again and returns 400
    `Merchant rejected unexpected fields: ...` before any search runs. The receipt in the sidebar is
    that accepted body, echoed back by the server.
@@ -108,7 +120,10 @@ Numbers a judge can reproduce from this checkout (2026-09-03, dev server on :300
 | Fields the shop can receive                 | 4 (`category`, `size`, `features`, `colors`)     | `CATALOG_SEARCH_INPUT_SCHEMA`, `parsePublicBrief`     |
 | Private facts the agent holds               | 9                                                | `DAD_SCOTLAND_FIXTURE` in `lib/vitrine.ts`; the vault |
 | Keys in the Arcade search input             | 1 (`keywords`)                                   | test "sends only keywords to Arcade"                  |
-| Unit tests                                  | 109 passing (37 suites)                          | `npm test`                                            |
+| Live XL search                              | Walmart, 5 rows, 5 photos, 5 walmart.com links   | `POST /api/catalog/search` with the XL brief          |
+| Storefront default (size M)                 | Google Shopping, 8 rows, swatch cards            | `POST /api/catalog/search` with the M brief           |
+| 5,000 repeated `features` values            | 400 before any search                            | `POST /api/catalog/search`, `parsePublicBrief`        |
+| Unit tests                                  | 132 passing (42 suites)                          | `npm test`                                            |
 | BDD scenarios                               | 8 passing (24 steps)                             | `npm run test:bdd`                                    |
 | Private markers in the SSR HTML             | 0                                                | `npm run check:ssr`                                   |
 
@@ -127,8 +142,14 @@ Arcade runs only on the server. The API key never reaches the browser.
   optionally, `GoogleCalendar.ListEvents`. The parsed facts are the vault.
 - `search_products` runs through `Walmart.SearchProducts` / `GoogleShopping.SearchProducts` with
   input `{ keywords }` and nothing else. The sidebar prints the exact Arcade call.
-- The Arcade routes are same-origin-gated and rate-limited, and never return an authorization URL.
-  `GET /api/arcade/status` returns four booleans and nothing else.
+- The Arcade routes are same-origin-gated (`Sec-Fetch-Site: same-origin`, or a same-host
+  `Origin` for clients without it) and rate-limited to 60 requests a minute per client, and never
+  return an authorization URL. Cross-site browser requests get 403; a script that sets a same-host
+  `Origin` can read the shared demo status, which is four booleans and nothing else.
+- Walmart rows get their photo from the product page's `og:image` (`lib/product-images.ts`), read
+  once per product on the server and cached; when the host blocks that read the card keeps its
+  swatch. Walmart is tried first; when it returns fewer than three clean rows the route falls back
+  to Google Shopping, then to the recorded sample.
 - The hosted demo runs on one demo Google account owned by the author; the fixture is embedded in
   the client bundle as the credential-free fallback, and the recorded sample fills the shop when
   live search is unavailable. Both are labeled on the page.
@@ -162,9 +183,11 @@ Luna, site tools enabled under Settings > Browser > Permissions), and Chrome 149
 `chrome://flags/#enable-webmcp-testing` enabled.
 
 1. Open the live URL. The sidebar reads "Agent knows 0 facts / Shop received 0 fields" and the
-   vault is sealed. The grid shows the storefront's own default query (size M, live Walmart or
-   Google Shopping via Arcade when the server has a key, otherwise the labeled recorded sample);
-   the header says "storefront default, no shopper request yet" and the seam stays at 0 / 0.
+   vault is sealed. When the server has an Arcade key the grid shows live inventory from the
+   storefront's own default query (size M; Walmart, or Google Shopping when Walmart returns too few
+   clean rows), otherwise the labeled 12-jacket recorded sample. The header says "storefront
+   default, no shopper request yet", the "Exact Arcade call" line says "Storefront default, not a
+   shopper request", and the seam stays at 0 / 0.
 2. Click **Copy agent prompt** and paste it into the agent. The prompt contains no private fact.
 3. The agent calls `load_context`. The vault fills, labeled "from Arcade Gmail" or "demo fixture".
 4. The agent calls `search_products` with only `category`, `size`, `features`, `colors`. Read
@@ -172,8 +195,8 @@ Luna, site tools enabled under Settings > Browser > Permissions), and Chrome 149
    Arcade call beside it.
 5. Click **Try to leak** to see the 400.
 6. The agent calls `compare_products`, then `prepare_selection`. Open the listing yourself: on live
-   results that is a 700 ms press-and-hold; the sample catalog has no external listing, so the
-   "Your pick" panel is the listing.
+   results that is a 700 ms press-and-hold that opens the real walmart.com (or Google Shopping)
+   page; the recorded sample has no external listing, so the "Your pick" panel is the listing.
 
 If the agent declines `load_context`, use the fallback prompt: "He is XL, likes navy or olive,
 needs waterproof and packable."

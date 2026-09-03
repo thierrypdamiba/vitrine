@@ -13,20 +13,40 @@ loads a labeled demo fixture and the shop searches a labeled recorded sample.
 | `/api/catalog/search` | POST   | `Walmart.SearchProducts` / `GoogleShopping.SearchProducts`    | `{ receipt, merchantQuery, merchant, items, arcadeRequest?, cached? }` or `400 { error }` for any extra key.       |
 
 The two `/api/arcade/*` routes serve only the page: `guardVaultRequest` rejects requests that are
-not same-origin (`Sec-Fetch-Site: same-origin` or a matching `Origin`) with 403, and throttles
-each client to 60 requests a minute with 429. They never trigger an authorization flow and never
-return an authorization URL; when Gmail is not authorized the server logs a warning and the page
-falls back to the fixture. Successful context and status responses are memoized for five minutes
-per isolate, so judging traffic reads the mailbox at most every five minutes.
+not same-origin with 403 and throttles each client to 60 requests a minute with 429. Browsers send
+`Sec-Fetch-Site`, which settles it, so a cross-site page cannot call these routes; the `Origin`
+fallback is for clients without that header, and a script that sets a same-host `Origin` passes on
+purpose. That is acceptable because the routes answer with the shared demo mailbox's parsed facts
+and four status booleans, never a token, an authorization URL, or anything keyed to the caller:
+the gate bounds accidental cross-site use and quota, not secrecy. They never trigger an
+authorization flow and never return an authorization URL; when Gmail is not authorized the server
+logs a warning and the page falls back to the fixture. Successful context and status responses are
+memoized for five minutes per isolate, so judging traffic reads the mailbox at most every five
+minutes.
 
 `/api/catalog/search` is not rate-limited (agents call it); a keyword cache is the quota guard.
+`parsePublicBrief` also caps the enum arrays: `features` or `colors` longer than the allowed set
+(two values each) is rejected with 400 before the array is walked, so a 5,000-entry payload never
+reaches the adapter, and a short list that repeats a value collapses to one entry in the receipt.
+The schema says the same with `maxItems: 2` and `uniqueItems: true`.
+
+The page also calls this route once on its own, without any shopper request: when
+`/api/arcade/status` reports `shopping: true`, it sends `STOREFRONT_DEFAULT_BRIEF` (size M,
+waterproof + packable, navy | olive; `lib/session.ts`) so the grid shows live inventory before the
+agent does anything. That result never becomes the receipt or moves the seam; the sidebar prints it
+as "Storefront default, not a shopper request". Until the status route answers, the grid holds
+the labeled recorded sample.
 
 Walmart rows carry no image field. For each Walmart result the server reads the product page's
 `og:image` tag (`lib/product-images.ts`: walmart.com links only, 4 s timeout, at most 600 KB, only
-`walmartimages.com` hosts accepted) once per product before the result enters the six-hour cache.
-A photo that cannot be read leaves the card on its swatch; on a hosted worker Walmart may block
-datacenter addresses, in which case every card shows the swatch. Google Shopping rows link to
-search pages and are never fetched. The only input to that read is the merchant's own link.
+`walmartimages.com` hosts accepted) once per product before the result enters the six-hour cache,
+so every cache hit ships the same photos. A photo that cannot be read leaves the card on its
+swatch; on a hosted worker Walmart may block datacenter addresses, in which case every card shows
+the swatch. Google Shopping rows link to Google Shopping search pages and are never fetched. The
+only input to that read is the merchant's own link. Measured on 2026-09-03 against the dev server:
+the XL brief resolved to Walmart with 5 rows, 5 photos, 5 walmart.com links; the size-M storefront
+default resolved to Google Shopping (Walmart returned fewer than three clean M rows), 8 swatch
+cards.
 
 ## Exact Arcade inputs
 
@@ -62,8 +82,9 @@ labels it. Live and sample rows are never mixed.
 
 ## Limitations
 
-- No product images. Neither Arcade SERP tool returns usable image URLs for these rows, and
-  `Walmart.GetProductDetails` has none either, so the cards render swatches instead of pictures.
+- Neither Arcade SERP tool returns an image URL for these rows, and `Walmart.GetProductDetails`
+  has none either. Walmart cards get their photo from the product page's `og:image` as described
+  above; Google Shopping cards render swatches.
 - `GoogleShopping.SearchProducts` has no price parameter at all.
 - Both shopping tools need the Arcade project secret `SERP_API_KEY`; they do not need shopper
   OAuth. If the secret is missing, `shopping` is false in the status and the shop labels the

@@ -44,16 +44,25 @@ Recorded from the hosted page's browser console with
   in the next 180 days; the vault shows nine facts, no Calendar row, until the owner creates
   the event `Scotland trip with Dad`, Oct 10–17 2026, location Edinburgh).
 
-## Verified locally at integration (2026-09-03 12:13 PT, merged main, dev server on :3001)
+## Verified locally at integration (2026-09-03 14:00 PT, main at fe23ea9, dev server on :3001)
 
 - `curl -s localhost:3001 | grep -c -w -E 'Dad|Scotland|October|250'` → `0`.
 - `POST /api/catalog/search` with the XL brief → 200, receipt keys exactly
   `category, size, features, colors`, `merchant: walmart`, `arcadeRequest`
   `{"tool":"Walmart.SearchProducts","input":{"keywords":"XL waterproof packable navy olive jacket"}}`,
-  8 items.
-- The same body plus `destination` → `400 {"error":"Merchant rejected unexpected fields: destination"}`.
-- `GET /api/arcade/status` (same-origin) → `{"configured":true,"gmailRead":true,"calendar":true,"shopping":true}`;
-  without the header → 403.
+  5 items, all 5 with an `imageUrl` on walmartimages.com and a walmart.com `url`; no private
+  marker and no secret-like string in the body.
+- `POST /api/catalog/search` with the storefront default (size M) → 200,
+  `merchant: google_shopping`, 8 items, swatch cards (no photo, Google Shopping search links).
+- The same XL body plus `destination` → `400 {"error":"Merchant rejected unexpected fields: destination"}`.
+- The XL body with `features` repeated 5,000 times →
+  `400 {"error":"features must be waterproof and packable values"}`; with
+  `["waterproof","waterproof"]` → 200 and the receipt shows `["waterproof"]`.
+- `GET /api/arcade/status` with `Sec-Fetch-Site: same-origin` or a same-host `Origin` →
+  `{"configured":true,"gmailRead":true,"calendar":true,"shopping":true}`; with
+  `Sec-Fetch-Site: cross-site` or no header → 403.
+- `npm test` 132/132 (42 suites), `npm run test:bdd` 8 scenarios / 24 steps, lint, format,
+  `tsc --noEmit`, build, `check:ssr` 0.
 - `POST /api/arcade/context` (same-origin) → 200, `context.source: "arcade"`, no URL in the body,
   `calendarSummary` absent (no event on the demo calendar); without the header → 403.
 - `npm run test:evals` (webmcp-evals 0.0.4 smoke, Puppeteer Chrome, no LLM) → 2/2 steps PASS:
@@ -90,11 +99,15 @@ extra key before any inventory is searched. Several entries keep private context
 Vitrine makes the merchant side of that line inspectable: a schema that cannot carry the reason
 and a receipt of what the merchant received.
 
-**How it creates a better user experience.** The shop starts sealed: the sidebar reads "Agent
-knows 0 facts / Shop received 0 fields." The agent calls `load_context` and the vault fills with
-nine facts read from the shopper's Gmail through Arcade on the server (labeled "from Arcade
-Gmail"; a labeled demo fixture when Arcade is not connected). The agent calls `search_products`;
-the grid narrows and the sidebar prints the literal request body the merchant adapter accepted,
+**How it creates a better user experience.** The shop is a real storefront: with Arcade
+configured the grid shows live inventory from the shop's own default query before the agent does
+anything, labeled "storefront default, no shopper request yet". The shop still starts sealed: the
+sidebar reads "Agent knows 0 facts / Shop received 0 fields" because only shopper requests count.
+The agent calls `load_context` and the vault fills with nine facts read from the shopper's Gmail
+through Arcade on the server (labeled "from Arcade Gmail"; a labeled demo fixture when Arcade is
+not connected). The agent calls `search_products`; the grid narrows to live Walmart rows with real
+product photos and walmart.com links, and the sidebar prints the literal request body the merchant
+adapter accepted,
 "200 · accepted," and the counter flips to "9 / 4." Beside it is the exact Arcade call the adapter
 made — `{"tool":"Walmart.SearchProducts","input":{"keywords":"XL waterproof packable navy olive jacket"}}`
 — and one sentence: Walmart's tool accepts `max_price`; Vitrine leaves it empty, and the $250
@@ -121,10 +134,14 @@ sidebar strip from `toolchange` + `getTools()` where the host supports them: `lo
 (readOnlyHint true, untrustedContentHint true), `search_products` (readOnlyHint true; the schema,
 not the hint, is the safety property), `compare_products` and `prepare_selection` (readOnlyHint
 false, untrustedContentHint true). Every tool has a title, state-aware `{error, hint}` results,
-and a 1,500-character output budget. The shop's filter form also carries
-`toolname`/`toolparamdescription` as a Chrome-only enhancement (ChatGPT's browser does not expose
-form tools). Server side, `parsePublicBrief` re-validates and rejects unknown keys; the Arcade
-keyword string is built only from validated enum values; Walmart's `max_price` is never sent;
+and a 1,500-character output budget; `execute` accepts its arguments as an object or as a JSON
+string, every call into the host is guarded so a throwing host never blocks registration, and a
+host that attaches `modelContext` after first paint is polled for up to 10 s. The shop's filter
+form also carries `toolname`/`toolparamdescription` as a Chrome-only enhancement (ChatGPT's
+browser does not expose form tools). Server side, `parsePublicBrief` re-validates and rejects
+unknown keys, caps the two enum arrays at their allowed set (`maxItems: 2`, `uniqueItems: true`
+in the schema) and collapses repeats; the Arcade keyword string is built only from validated enum
+values; Walmart's `max_price` is never sent;
 unit tests assert no private field appears in any tool schema and that the Arcade input object has
 exactly one key. Arcade runs only on the server (Gmail.SearchEmailsByQuery,
 GoogleCalendar.ListEvents, Walmart.SearchProducts / GoogleShopping.SearchProducts); the API key
@@ -141,7 +158,9 @@ Enable site tools) or in Chrome 149+ with `chrome://flags/#enable-webmcp-testing
 
 1. The page loads sealed: "Agent knows 0 facts / Shop received 0 fields", the vault reads
    "Sealed", the grid shows the storefront's own default query (live inventory via Arcade when
-   the server has a key, otherwise the labeled recorded sample). No shopper request has run yet.
+   the server has a key, labeled "storefront default, no shopper request yet"; Walmart rows, when
+   Walmart answers, show real product photos and open walmart.com; otherwise the labeled 12-jacket
+   recorded sample). No shopper request has run yet, so the seam counts nothing.
 2. Click **Copy agent prompt** and paste it into the agent. The prompt contains no private fact.
 3. The agent calls `load_context` (vault fills, labeled "from Arcade Gmail" or "demo fixture"),
    then `search_products` (grid narrows; **Shop received** prints the accepted body with
@@ -155,8 +174,9 @@ Enable site tools) or in Chrome 149+ with `chrome://flags/#enable-webmcp-testing
    spec's over-parameterized tool; it is off by default and nothing it receives leaves the page.
    ChatGPT's safety review may decline it.
 
-The ARCADE panel shows real connected states from `GET /api/arcade/status`. When Arcade is not
-configured on the host, the page says so and runs the labeled demo fixture and recorded sample.
+The ARCADE panel shows real connected states from `GET /api/arcade/status` (it says it is still
+checking until the route answers). When Arcade is not configured on the host, the page says so and
+runs the labeled demo fixture and recorded sample.
 Tools: `load_context`, `search_products`, `compare_products`, `prepare_selection` on
 `document.modelContext`; `filter_jackets` is a Chrome-only declarative form.
 
@@ -169,8 +189,9 @@ text is the Arcade evidence. Drop any beat whose feature did not ship or that th
 narrate a refusal if it happened.
 
 - 0:00–0:12 Hosted URL open, sidebar visible: seam 0 / 0, vault Sealed, ARCADE rows read aloud
-  exactly as shown, 12-jacket browse grid. Press Enter on the pre-typed prompt. "This is a jacket
-  shop that never learns why you are shopping. The prompt says nothing about who it's for."
+  exactly as shown, live grid labeled "storefront default, no shopper request yet" (the 12-jacket
+  recorded sample if the host has no key). Press Enter on the pre-typed prompt. "This is a real
+  jacket shop that never learns why you are shopping. The prompt says nothing about who it's for."
 - 0:12–0:30 `load_context` fires; the vault fills, pilled "from Arcade Gmail"; seam "Agent knows 9 facts"; activity "agent · load_context → Gmail.SearchEmailsByQuery".
   "The agent just read my gift notes from Gmail through Arcade, on the server. Nine facts. Now
   watch what the shop gets."

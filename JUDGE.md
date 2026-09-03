@@ -28,7 +28,11 @@ The prompt contains no private fact. If the agent declines `load_context`, use t
 
 1. **Open the live URL** from the Devpost entry (or `npm install && npm run dev`, port 3001, and
    open http://localhost:3001). The sidebar's **The seam** reads "Agent knows 0 facts / Shop received 0
-   fields"; **Vault** reads "Sealed"; the grid shows the 12-jacket browse catalog. No search has run.
+   fields"; **Vault** reads "Sealed". When Arcade is configured the grid already shows live
+   inventory from the storefront's own default query, labeled "storefront default, no shopper
+   request yet" (Walmart rows carry real product photos and walmart.com links; Google Shopping
+   rows keep a swatch); without Arcade it shows the labeled 12-jacket recorded sample. No shopper
+   request has run, so the seam stays 0 / 0.
 2. **Paste the prompt** into the agent.
 3. **Look at three things** while it runs:
    - **Vault** fills with nine facts (recipient, relationship, destination, dates, weather, size,
@@ -41,14 +45,16 @@ waterproof packable navy olive jacket"}}`). "Shop received 4 fields". Every numb
      comes from a response the server sent, not from client state.
    - **Agent can call now** grows as the page state advances: `compare_products` after a search
      returns, `prepare_selection` after two ids are compared. `prepare_selection` never navigates;
-     opening the listing is a 700 ms press-and-hold on the page.
+     opening the real listing (walmart.com on live Walmart results) is a 700 ms press-and-hold on
+     the page.
 4. **Try to leak.** Click the button under **Shop received**. The sidebar shows the body it sent
    with `destination` and `budgetUsd` added on purpose and the adapter's literal
    `400 {"error":"Merchant rejected unexpected fields: destination, budgetUsd"}`. The grid and the
    receipt do not change.
 5. **Chrome only: open DevTools > Application > WebMCP.** `search_products` shows an input schema
-   with four enum properties and `additionalProperties: false`; there is no property for an
-   occasion, a note, or a budget. The declarative `filter_jackets` form tool is listed here and
+   with four enum properties, `additionalProperties: false`, and `maxItems: 2` /
+   `uniqueItems: true` on the two arrays; there is no property for an occasion, a note, or a
+   budget. The declarative `filter_jackets` form tool is listed here and
    not in ChatGPT, whose browser does not expose form tools.
 
 ## Optional: the over-parameterized tool
@@ -62,7 +68,7 @@ receives leaves the page. It is off by default and is not product behavior.
 ## Verify from a terminal
 
 ```sh
-npm test            # 109 unit tests, including "no private field in any tool schema"
+npm test            # 132 unit tests, including "no private field in any tool schema"
 npm run test:bdd    # 8 Gherkin scenarios
 npm run check:ssr   # prints 0: no private value in the server-rendered HTML (dev server on :3001)
 ```
