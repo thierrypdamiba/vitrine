@@ -1,6 +1,6 @@
 # The WebMCP Challenge context
 
-Passage is being built for [The WebMCP Challenge](https://webmcp.devpost.com/), hosted by OpenAI on
+Vitrine is being built for [The WebMCP Challenge](https://webmcp.devpost.com/), hosted by OpenAI on
 Devpost. This document is the operating context for development. The official rules and challenge
 website prevail if they disagree with this summary.
 
@@ -30,7 +30,7 @@ The four criteria are equally weighted:
 4. **Creativity and Ambition:** The concept should be novel and meaningfully different from existing
    projects.
 
-Judging has a pass/fail viability stage before the scored stage. Passage must first be recognizably
+Judging has a pass/fail viability stage before the scored stage. Vitrine must first be recognizably
 on-theme and use WebMCP in a real, working path. The four criteria above then carry equal weight.
 
 ## Public judge roster
@@ -68,32 +68,32 @@ Projects created before August 25 are eligible only when they receive a meaningf
 during the submission period. The submission must distinguish earlier work from new work with dated
 commit history or equivalent evidence. Preserve the Git history from this build onward.
 
-## Passage response to the brief
+## Vitrine response to the brief
 
-Passage turns a private shopping problem into an inspectable WebMCP workflow:
+Vitrine turns a private shopping problem into an inspectable WebMCP workflow:
 
-1. The top-level Passage page gives the agent structured private-context tools.
-2. The agent asks Vitrine for inventory through a narrow merchant request.
-3. Vitrine receives only size and garment length.
-4. Passage applies budget and event rules on the shopper's side.
-5. The Seam shows what Passage knew beside what Vitrine actually received.
-6. A labeled leaky-mode simulation makes the disclosure difference visible.
+1. The vault loads private context from a fixture or Arcade Gmail/Calendar.
+2. The agent proposes a public brief. The shopper submits `share_brief`.
+3. `search_products` sends only category, size, features, and colors.
+4. The merchant adapter searches Google Shopping or a labeled recorded sample and returns a receipt.
+5. Budget ranking stays in the vault. Compare and prepare follow. The shopper opens the listing.
 
-The critical path uses deterministic event and inventory data. Arcade, Google, Shopify, checkout, and
-account creation remain outside the first submission-ready build.
+The critical path uses deterministic vault and recorded product data. Live Arcade shopping is
+optional and labeled when it is missing. Google authorization, checkout, and account creation remain
+outside the credential-free judging path.
 
 ## Judge-facing story
 
 The product claim should be legible in one short sequence:
 
-1. A shopper supplies Passage with private event context.
-2. An agent invokes Passage's WebMCP tools and produces relevant dresses.
-3. The Seam reveals that Vitrine received only size and length.
-4. A labeled leaky simulation shows the disclosure the private path avoided.
+1. Run the private shopping demo.
+2. Read Dad, Scotland, and the budget in the vault.
+3. Share the public brief.
+4. Confirm the merchant receipt has only jacket, XL, waterproof, packable, navy, and olive.
+5. Open a product card. Private values are absent there.
 
 This sequence must be visible in the hosted app, reproducible from the README, and clear in a demo
-video under three minutes. The interface should establish the privacy problem and the WebMCP benefit
-before explaining implementation details.
+video under three minutes. The hosted URL must be public. Owner-only Sites hosting fails judging.
 
 ## Definition of submission-ready
 

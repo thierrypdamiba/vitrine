@@ -1,10 +1,5 @@
 {
-  "ignore": [
-    ".safeword/**",
-    ".project/**",
-    ".safeword-project/**",
-    ".next/**"
-  ],
+  "ignore": [".safeword/**", ".project/**", ".safeword-project/**", ".next/**", "**/*.test.ts"],
   "ignoreDependencies": [
     "safeword",
     "dependency-cruiser",

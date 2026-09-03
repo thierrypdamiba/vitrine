@@ -4,7 +4,7 @@
 
 **Kind:** UI client
 **Audience:** Privacy-conscious shopper (PCS)
-**Examples:** Passage dashboard, privacy seam, dress results
+**Examples:** Vitrine vault, public brief, merchant receipt, and product cards
 
 ## ChatGPT in-app browser
 
@@ -25,6 +25,6 @@ inputs, outputs, errors, and invocation history.
 
 **Kind:** Deployment mode
 **Audience:** Hackathon judge (HJ)
-**Examples:** Public HTTPS deployment with no required credentials
+**Examples:** HTTPS deployment with no required credentials
 **Coverage notes:** Must preserve origin isolation and expose the same product behavior to humans and
 WebMCP agents.

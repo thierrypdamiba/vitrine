@@ -1,25 +1,41 @@
 # Glossary
 
-## Passage
-
-**Definition:** The shopper-controlled top-level web app that holds private context and registers WebMCP tools.
-
 ## Vitrine
 
-**Definition:** The merchant boundary that accepts narrow inventory filters and returns dresses.
+**Definition:** The private vault and WebMCP demo. It is not the store.
+
+## Private context
+
+**Definition:** Personal facts available to the shopper or agent but not needed by the merchant, such
+as the recipient, relationship, destination, dates, budget, emails, calendar events, and purchase
+history.
+
+## Public brief
+
+**Definition:** The smallest structured set of ordinary catalog constraints that Vitrine permits to
+cross the merchant boundary: category, size, features, and colors.
+
+## Merchant adapter
+
+**Definition:** The HTTP boundary that validates a public brief, searches Google Shopping, Walmart,
+or a recorded sample, and reports the request it accepted.
+
+## Merchant receipt
+
+**Definition:** The exact accepted public brief returned by the merchant adapter as disclosure
+evidence.
 
 ## Seam
 
-**Definition:** The visible ledger comparing facts known by Passage with fields received by Vitrine.
+**Definition:** The visible split between vault facts and the merchant receipt. Private values appear
+only in the vault.
 
-## Private mode
+## Guided demo
 
-**Definition:** A search where Vitrine receives inventory constraints but no occasion, event details, or budget.
+**Definition:** A credential-free run that loads the vault, waits for the shopper to share the
+public brief, then searches with the same command used by WebMCP.
 
-## Leaky mode
+## Arcade context provider
 
-**Definition:** A labeled simulation showing how a broad personalization request reveals private context.
-
-## Merchant request
-
-**Definition:** The exact structured payload received by the Vitrine adapter.
+**Definition:** The optional MCP path that reads authorized Gmail and Calendar into the vault, and
+searches live merchant catalogs. It is not required for the judging path.

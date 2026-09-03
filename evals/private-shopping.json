@@ -1,0 +1,20 @@
+{
+  "name": "private-shopping-brief",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Find Dad a jacket for a rainy October trip to Scotland. Keep it under $250."
+    }
+  ],
+  "expectedCall": [
+    {
+      "functionName": "search_products",
+      "arguments": {
+        "category": "jacket",
+        "size": "XL",
+        "features": ["waterproof", "packable"],
+        "colors": ["navy", "olive"]
+      }
+    }
+  ]
+}

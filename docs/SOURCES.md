@@ -12,7 +12,7 @@ When sources disagree, use this order:
 2. The current WebMCP draft and `webmachinelearning/webmcp` repository for API semantics, risks, and
    implementation status.
 3. Current Chrome developer documentation for Chrome setup, debugging, security, and evaluations.
-4. Local browser measurements for behavior in the tested Passage environment only.
+4. Local browser measurements for behavior in the tested ChatGPT in-app browser only.
 5. Official supporter examples as implementation references.
 6. DEV Community and other third-party writing as leads and cautionary experience only.
 
@@ -23,9 +23,12 @@ When sources disagree, use this order:
 - [Devpost rules](https://webmcp.devpost.com/rules)
 - [OpenAI challenge page](https://openai.com/webmcp-challenge/)
 
-The OpenAI marketing page currently shows opening and deadline times that differ from the Devpost
-official rules. Passage uses the rules' September 3, 2026 at 1:00 p.m. Pacific deadline and treats
-the earlier cutoff as final.
+The OpenAI marketing page and Devpost dates page agree with the rules on the September 3, 2026
+at 1:00 p.m. Pacific deadline. They disagree on opening hour: rules say August 25 at 11:00 a.m.
+Pacific, the dates page and OpenAI page say 12:00 p.m. Use the rules if that hour ever matters.
+A community post that prints "8:00 PM" is the same deadline in UTC, not a later cutoff. One
+Devpost FAQ row says there is no video; the rules require a public YouTube demo under three
+minutes with audio. Use the rules. The product name is Vitrine, not Passage.
 
 ## WebMCP primary sources
 
@@ -45,9 +48,19 @@ the earlier cutoff as final.
 ## Project evidence
 
 - On August 26, the ChatGPT in-app browser exposed `document.modelContext` to the top-level local
-  Passage probe but not its embedded Vitrine iframe.
+  probe but not its embedded merchant iframe.
 - This observation supports top-level registration for this build. It does not override the spec's
   same-origin and `allow="tools"` iframe model or claim universal client behavior.
+
+## Arcade primary sources
+
+- [Authorized tool calling](https://docs.arcade.dev/en/build/tool-calling/custom-apps/auth-tool-calling),
+  checked August 28, 2026
+- [Gmail toolkit](https://docs.arcade.dev/en/resources/integrations/productivity/gmail), version
+  8.9.1, checked August 28, 2026
+- [Arcade TypeScript client](https://github.com/ArcadeAI/arcade-js), version 2.4.1, checked August
+  28, 2026
+- [API key setup](https://docs.arcade.dev/en/get-started/setup/api-keys), checked August 28, 2026
 
 ## Refresh triggers
 
