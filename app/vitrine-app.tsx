@@ -99,7 +99,7 @@ export function VitrineApp() {
   }, []);
 
   useEffect(() => {
-    const modelContext = detectModelContext(document);
+    const modelContext = detectModelContext(document, navigator);
     if (!modelContext) return;
 
     const controller = new AbortController();

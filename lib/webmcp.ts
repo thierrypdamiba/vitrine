@@ -43,6 +43,7 @@ export type JsonSchema = {
 
 export type ModelContextTool = {
   name: string;
+  title?: string;
   description: string;
   inputSchema: JsonSchema;
   annotations: {
@@ -144,6 +145,7 @@ export function catalogSearchToolDefinition(
 ): ModelContextTool {
   return {
     name: SEARCH_PRODUCTS_TOOL_NAME,
+    title: 'Search jackets (public brief only)',
     description: SEARCH_DESCRIPTION,
     inputSchema: CATALOG_SEARCH_INPUT_SCHEMA,
     annotations: {
@@ -168,12 +170,18 @@ function tool(
 
 export function detectModelContext(
   documentLike: { modelContext?: ModelContext } | null | undefined,
+  navigatorLike?: { modelContext?: ModelContext } | null,
 ): ModelContext | null {
-  return documentLike?.modelContext ?? null;
+  // ChatGPT's browser and Chrome expose document.modelContext; some hosts and
+  // older builds only expose the navigator alias.
+  return documentLike?.modelContext ?? navigatorLike?.modelContext ?? null;
 }
 
 declare global {
   interface Document {
+    modelContext?: ModelContext;
+  }
+  interface Navigator {
     modelContext?: ModelContext;
   }
 }
@@ -216,6 +224,7 @@ export async function registerVitrineTools(
     tools.push(
       tool({
         name: LOAD_CONTEXT_TOOL_NAME,
+        title: 'Read the shopper vault',
         description:
           'Load private gift context into the vault. Never send that context to search_products.',
         inputSchema: EMPTY_SCHEMA,
@@ -242,6 +251,7 @@ export async function registerVitrineTools(
     tools.push(
       tool({
         name: PROPOSE_BRIEF_TOOL_NAME,
+        title: 'Propose a public brief',
         description:
           'Derive the public brief from vault context. Show it for shopper approval. Do not search yet.',
         inputSchema: EMPTY_SCHEMA,
@@ -275,6 +285,7 @@ export async function registerVitrineTools(
     tools.push(
       tool({
         name: COMPARE_PRODUCTS_TOOL_NAME,
+        title: 'Compare visible products',
         description: 'Compare two or three visible products after search_products returns.',
         inputSchema: COMPARE_SCHEMA,
         untrusted: true,
@@ -306,6 +317,7 @@ export async function registerVitrineTools(
     tools.push(
       tool({
         name: PREPARE_SELECTION_TOOL_NAME,
+        title: 'Prepare one product for the shopper',
         description:
           'Prepare one compared product. The shopper confirms before opening the listing.',
         inputSchema: PREPARE_SCHEMA,
@@ -338,6 +350,13 @@ export async function registerVitrineTools(
   }
 
   for (const entry of tools) {
-    await modelContext.registerTool(entry, { signal: options.signal });
+    try {
+      await modelContext.registerTool(entry, { signal: options.signal });
+    } catch (error) {
+      // A host that ignores the AbortSignal still holds the earlier registration
+      // under this name; it reads live state through refs, so keep going.
+      if (error instanceof DOMException && error.name === 'InvalidStateError') continue;
+      throw error;
+    }
   }
 }

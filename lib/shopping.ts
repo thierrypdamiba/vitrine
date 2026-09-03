@@ -169,6 +169,12 @@ async function executeProductSearch(
     : new ArcadeContextError('Arcade product search failed');
 }
 
+const LIVE_CACHE_TTL_MS = 5 * 60 * 1000;
+const liveCache = new Map<
+  string,
+  { expires: number; value: { items: CatalogItem[]; merchant: MerchantSource } | null }
+>();
+
 export async function searchLiveProducts(
   merchantQuery: string,
   options: {
@@ -186,6 +192,12 @@ export async function searchLiveProducts(
   const userId = options.userId ?? config?.userId;
   if (!tools || !userId) return null;
 
+  // Cache only the environment-backed path. The key is the public keyword string, so
+  // nothing shopper-specific is ever stored.
+  const cacheable = !options.tools;
+  const cached = cacheable ? liveCache.get(merchantQuery) : undefined;
+  if (cached && cached.expires > Date.now()) return cached.value;
+
   const attempts: Array<{ tool: string; merchant: MerchantSource }> = [
     { tool: ARCADE_SHOPPING_TOOL, merchant: 'google_shopping' },
     { tool: ARCADE_WALMART_TOOL, merchant: 'walmart' },
@@ -199,7 +211,10 @@ export async function searchLiveProducts(
       const value = await executeProductSearch(tools, userId, attempt.tool, merchantQuery);
       const items = parseShoppingProducts(value, attempt.merchant);
       if (items.length > 0) {
-        return { items, merchant: attempt.merchant };
+        const found = { items, merchant: attempt.merchant };
+        if (cacheable)
+          liveCache.set(merchantQuery, { expires: Date.now() + LIVE_CACHE_TTL_MS, value: found });
+        return found;
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') throw error;
