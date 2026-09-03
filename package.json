@@ -16,7 +16,8 @@
     "format:check": "prettier --check .",
     "knip": "knip",
     "test": "node --import tsx --test lib/*.test.ts app/api/catalog/search/route.test.ts",
-    "test:bdd": "cucumber-js"
+    "test:bdd": "cucumber-js",
+    "check:ssr": "curl -s localhost:3001 | grep -c -w -E 'Dad|Scotland|October|250' ; true"
   },
   "dependencies": {
     "@arcadeai/arcadejs": "^2.4.1",
