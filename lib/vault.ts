@@ -27,13 +27,6 @@ export type MerchantProbe = {
   body: string;
 };
 
-const OFFLINE_STATUS: ArcadeStatus = {
-  configured: false,
-  gmailRead: false,
-  calendar: false,
-  shopping: false,
-};
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -131,21 +124,29 @@ export async function loadVault(fetchImpl: typeof fetch = fetch): Promise<VaultL
   return { context, via: 'arcade' };
 }
 
-/** Booleans only; the all-false object when the route is unreachable. */
-export async function fetchArcadeStatus(fetchImpl: typeof fetch = fetch): Promise<ArcadeStatus> {
+/**
+ * Booleans only. Returns the route's answer on 200, including `configured: false`
+ * when the server has no Arcade key. Returns null when the route did not answer
+ * (network error, 403/429 from the guard, 5xx, non-JSON body) so the page keeps
+ * the status it already had instead of reporting "not configured" because of a
+ * throttle.
+ */
+export async function fetchArcadeStatus(
+  fetchImpl: typeof fetch = fetch,
+): Promise<ArcadeStatus | null> {
   try {
     const response = await fetchImpl('/api/arcade/status');
-    if (response.status !== 200) return OFFLINE_STATUS;
+    if (response.status !== 200) return null;
     const payload = await readJson(response);
-    if (!isRecord(payload)) return OFFLINE_STATUS;
+    if (!isRecord(payload) || typeof payload.configured !== 'boolean') return null;
     return {
-      configured: payload.configured === true,
+      configured: payload.configured,
       gmailRead: payload.gmailRead === true,
       calendar: payload.calendar === true,
       shopping: payload.shopping === true,
     };
   } catch {
-    return OFFLINE_STATUS;
+    return null;
   }
 }
 
