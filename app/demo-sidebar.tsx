@@ -3,7 +3,7 @@
 import { ArcadePanel } from '@/app/arcade-panel';
 import type { ArcadeStatus, VaultState } from '@/lib/arcade-types';
 import { seamCounts, type LeakRow } from '@/lib/seam';
-import { type TraceEvent } from '@/lib/session';
+import { type StorefrontDefault, type TraceEvent } from '@/lib/session';
 import type { MerchantProbe } from '@/lib/vault';
 import {
   JUDGE_PROMPT,
@@ -102,10 +102,12 @@ function maxPriceLine(result: VitrineSearchResult, budget: number | null): strin
 
 function ShopReceived({
   result,
+  storefront,
   budget,
   leakLedger,
 }: {
   result: VitrineSearchResult | null;
+  storefront: StorefrontDefault | null;
   budget: number | null;
   leakLedger: LeakRow[];
 }) {
@@ -132,7 +134,11 @@ function ShopReceived({
         <pre className="mt-1 overflow-x-auto rounded-xl border border-stone-200 bg-white p-3 font-mono text-xs leading-5 break-all whitespace-pre-wrap text-stone-800">
           {result?.arcadeRequest
             ? `${JSON.stringify(result.arcadeRequest)}${result.cached ? ' · cached' : ''}`
-            : 'Recorded sample. No Arcade call.'}
+            : result
+              ? 'Recorded sample. No Arcade call.'
+              : storefront?.arcadeRequest
+                ? `Storefront default, not a shopper request: ${JSON.stringify(storefront.arcadeRequest)}${storefront.cached ? ' · cached' : ''}`
+                : 'No shopper request yet. Recorded sample, no Arcade call.'}
         </pre>
         {result ? (
           <p className="mt-2 text-xs text-stone-600">{maxPriceLine(result, budget)}</p>
@@ -159,6 +165,7 @@ export function DemoSidebar({
   vault,
   arcadeStatus,
   result,
+  storefront = null,
   events,
   toolNames,
   hostToolNames,
@@ -176,6 +183,7 @@ export function DemoSidebar({
   vault: VaultState;
   arcadeStatus: ArcadeStatus | null;
   result: VitrineSearchResult | null;
+  storefront?: StorefrontDefault | null;
   events: TraceEvent[];
   toolNames: string[];
   hostToolNames: string[] | null;
@@ -258,7 +266,12 @@ export function DemoSidebar({
 
       <section>
         <Heading>Shop received</Heading>
-        <ShopReceived result={result} budget={budget} leakLedger={leakLedger} />
+        <ShopReceived
+          result={result}
+          storefront={storefront}
+          budget={budget}
+          leakLedger={leakLedger}
+        />
       </section>
 
       <section className="space-y-2">

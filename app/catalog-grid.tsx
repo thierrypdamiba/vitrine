@@ -1,6 +1,7 @@
 'use client';
 
-import type { CatalogItem, VitrineSearchResult } from '@/lib/vitrine';
+import type { StorefrontDefault } from '@/lib/session';
+import type { CatalogItem, MerchantSource, VitrineSearchResult } from '@/lib/vitrine';
 
 const SWATCH: Record<string, string> = { navy: '#1f2a44', olive: '#5b6b3a' };
 
@@ -21,19 +22,27 @@ function bandStyle(item: CatalogItem): { backgroundImage: string } {
   };
 }
 
+function sourceLabel(merchant: MerchantSource): string {
+  return merchant === 'walmart'
+    ? 'Live Walmart via Arcade'
+    : merchant === 'google_shopping'
+      ? 'Live Google Shopping via Arcade'
+      : 'Recorded sample';
+}
+
 function merchantLine(result: VitrineSearchResult): string {
-  const source =
-    result.merchant === 'walmart'
-      ? 'Live Walmart via Arcade'
-      : result.merchant === 'google_shopping'
-        ? 'Live Google Shopping via Arcade'
-        : 'Recorded sample';
-  return `${result.shortlist.length} results · ${source}${result.cached ? ' · cached' : ''}`;
+  return `${result.shortlist.length} results · ${sourceLabel(result.merchant)}${result.cached ? ' · cached' : ''}`;
+}
+
+/** Only remote https photos render as images; everything else keeps the swatch band. */
+export function hasPhoto(item: Pick<CatalogItem, 'imageUrl'>): boolean {
+  return typeof item.imageUrl === 'string' && item.imageUrl.startsWith('https://');
 }
 
 export function CatalogGrid({
   items,
   result,
+  storefront,
   comparedIds,
   preparedId,
   budgetUsd,
@@ -42,6 +51,7 @@ export function CatalogGrid({
 }: {
   items: CatalogItem[];
   result: VitrineSearchResult | null;
+  storefront?: StorefrontDefault | null;
   comparedIds: string[];
   preparedId: string | null;
   budgetUsd?: number | null;
@@ -50,7 +60,9 @@ export function CatalogGrid({
 }) {
   const header = result
     ? merchantLine(result)
-    : `${items.length} jackets · Browsing the sample storefront. No search yet.`;
+    : storefront
+      ? `${items.length} jackets · ${sourceLabel(storefront.merchant)} · storefront default, no shopper request yet`
+      : `${items.length} jackets · Recorded sample · storefront default, no shopper request yet`;
 
   return (
     <div className="space-y-4">
@@ -74,14 +86,25 @@ export function CatalogGrid({
                       : 'border-stone-200'
                 }`}
               >
-                <div className="relative h-[88px] w-full" style={bandStyle(item)}>
-                  <span
-                    aria-hidden="true"
-                    className="absolute bottom-3 left-4 flex h-9 w-9 items-center justify-center rounded-lg bg-white/90 text-sm font-semibold text-stone-900"
-                  >
-                    {item.merchantName.slice(0, 1).toUpperCase() || 'V'}
-                  </span>
-                </div>
+                {hasPhoto(item) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.imageUrl}
+                    alt=""
+                    className="h-56 w-full object-cover"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="relative h-[88px] w-full" style={bandStyle(item)}>
+                    <span
+                      aria-hidden="true"
+                      className="absolute bottom-3 left-4 flex h-9 w-9 items-center justify-center rounded-lg bg-white/90 text-sm font-semibold text-stone-900"
+                    >
+                      {item.merchantName.slice(0, 1).toUpperCase() || 'V'}
+                    </span>
+                  </div>
+                )}
                 <div className="space-y-3 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">

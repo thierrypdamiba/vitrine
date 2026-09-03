@@ -1,6 +1,26 @@
-import type { CatalogItem, PublicBrief } from './vitrine.ts';
+import type { ArcadeRequest, CatalogItem, PublicBrief } from './vitrine.ts';
 
 export type DemoStage = 'browse' | 'results' | 'compared' | 'prepared';
+
+/**
+ * The storefront's own browse query, sent once at page load when live shopping is
+ * available so first paint shows real inventory. It is the shop's default, not a
+ * shopper request: it never sets the receipt, the seam, or "Shop received".
+ */
+export const STOREFRONT_DEFAULT_BRIEF: PublicBrief = {
+  category: 'jacket',
+  size: 'M',
+  features: ['waterproof', 'packable'],
+  colors: ['navy', 'olive'],
+};
+
+/** Live rows shown in the browse grid before any shopper request. Never a receipt. */
+export type StorefrontDefault = {
+  items: CatalogItem[];
+  merchant: 'walmart' | 'google_shopping';
+  arcadeRequest?: ArcadeRequest;
+  cached?: boolean;
+};
 
 export type TraceActor = 'agent' | 'shopper' | 'merchant';
 
