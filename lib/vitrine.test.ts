@@ -184,7 +184,31 @@ describe('judge prompts', () => {
 describe('catalog and merchant contracts', () => {
   it('browses the full sample catalog without a brief', () => {
     assert.deepEqual(browseCatalog(), CATALOG);
-    assert.ok(browseCatalog().length >= 4);
+    assert.equal(browseCatalog().length, 12);
+  });
+
+  it('returns at least two house-brand jackets for every size on the full brief', () => {
+    for (const size of ['XS', 'S', 'M', 'L', 'XL'] as const) {
+      const matches = searchInventory({
+        category: 'jacket',
+        size,
+        features: ['waterproof', 'packable'],
+        colors: ['navy', 'olive'],
+      });
+      assert.ok(matches.length >= 2, `${size} must return at least two jackets`);
+    }
+  });
+
+  it('keeps the sample storefront brand-free and image-free', () => {
+    for (const item of CATALOG) {
+      for (const brand of ['REI', "Arc'teryx", 'Patagonia', 'Uniqlo']) {
+        assert.equal(item.name.includes(brand), false, `${item.name} must not mention ${brand}`);
+      }
+      assert.equal(item.imageUrl, '');
+      assert.equal(item.merchantName, 'Vitrine');
+      assert.equal(item.url, '#pick');
+      assert.ok(item.rating !== null && item.rating >= 4.2 && item.rating <= 4.8);
+    }
   });
 
   it('records that Walmart accepts a price ceiling Vitrine never sends', () => {
