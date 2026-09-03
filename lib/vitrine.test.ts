@@ -52,6 +52,28 @@ describe('parsePublicBrief', () => {
       assert.equal(parsed.ok, false, `${field} must be rejected`);
     }
   });
+
+  it('rejects an enum list longer than the allowed set, however valid its entries', () => {
+    const flood = Array.from({ length: 5000 }, () => 'waterproof');
+    const features = parsePublicBrief({ ...fixtureBrief, features: flood });
+    assert.equal(features.ok, false);
+    if (features.ok) return;
+    assert.match(features.error, /features/);
+    const colors = parsePublicBrief({ ...fixtureBrief, colors: ['navy', 'olive', 'navy'] });
+    assert.equal(colors.ok, false);
+  });
+
+  it('collapses a repeated enum value so the receipt lists it once', () => {
+    const parsed = parsePublicBrief({
+      ...fixtureBrief,
+      features: ['waterproof', 'waterproof'],
+      colors: ['olive', 'olive'],
+    });
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.deepEqual(parsed.brief.features, ['waterproof']);
+    assert.deepEqual(parsed.brief.colors, ['olive']);
+  });
 });
 
 describe('merchantQueryFromBrief', () => {
