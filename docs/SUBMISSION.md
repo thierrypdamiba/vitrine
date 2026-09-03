@@ -137,7 +137,8 @@ not Enterprise/Edu; model GPT-5.6 Sol or Terra, not Luna; Settings > Browser > P
 Enable site tools) or in Chrome 149+ with `chrome://flags/#enable-webmcp-testing`.
 
 1. The page loads sealed: "Agent knows 0 facts / Shop received 0 fields", the vault reads
-   "Sealed", the grid shows the browse catalog. No search has run yet.
+   "Sealed", the grid shows the storefront's own default query (live inventory via Arcade when
+   the server has a key, otherwise the labeled recorded sample). No shopper request has run yet.
 2. Click **Copy agent prompt** and paste it into the agent. The prompt contains no private fact.
 3. The agent calls `load_context` (vault fills, labeled "from Arcade Gmail" or "demo fixture"),
    then `search_products` (grid narrows; **Shop received** prints the accepted body with
