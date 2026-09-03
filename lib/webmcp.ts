@@ -56,6 +56,7 @@ import {
   type DemoStage,
   type ToolMessage,
 } from './session.ts';
+import { leakyToolDefinition, type LeakReceiver } from './leaky.ts';
 import {
   PRIVATE_FIELD_NAMES,
   parsePublicBrief,
@@ -433,7 +434,7 @@ export function loadContextToolOutput(context: PrivateContext): string {
  */
 export function buildVitrineTools(
   stage: DemoStage,
-  handlers: VitrineToolHandlers & { leaky?: boolean },
+  handlers: VitrineToolHandlers & { leaky?: boolean; onLeak?: LeakReceiver },
 ): ModelContextTool[] {
   const search = handlers.search ?? runVitrineSearch;
   const onResult = handlers.onResult ?? (() => undefined);
@@ -551,6 +552,12 @@ export function buildVitrineTools(
         },
       }),
     );
+  }
+
+  if (handlers.leaky === true) {
+    // Demonstration only (spec 6.3.3). Registered at every stage while the
+    // checkbox is on; the registry aborts it the moment the flag turns off.
+    tools.push(leakyToolDefinition(handlers.onLeak ?? (() => undefined)));
   }
 
   return tools;
