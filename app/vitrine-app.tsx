@@ -7,7 +7,14 @@ import { DemoSidebar, type CopiedPrompt } from '@/app/demo-sidebar';
 import { HoldButton } from '@/app/hold-button';
 import type { ArcadeStatus, VaultState } from '@/lib/arcade-types';
 import type { LeakRow } from '@/lib/seam';
-import { nextTraceEvent, type DemoStage, type TraceActor, type TraceEvent } from '@/lib/session';
+import {
+  STOREFRONT_DEFAULT_BRIEF,
+  nextTraceEvent,
+  type DemoStage,
+  type StorefrontDefault,
+  type TraceActor,
+  type TraceEvent,
+} from '@/lib/session';
 import {
   fetchArcadeStatus,
   loadVault,
@@ -34,6 +41,9 @@ import {
   buildVitrineTools,
   createToolRegistry,
   detectModelContext,
+  observeHostTools,
+  waitForModelContext,
+  type ModelContext,
   type ToolRegistry,
   type VitrineToolHandlers,
 } from '@/lib/webmcp';
@@ -41,16 +51,33 @@ import {
 const SEALED: VaultState = { status: 'sealed', context: null, via: null };
 const BROWSE_ITEMS = browseCatalog();
 
+// A throttled or unreachable status route answers null; retry a few times
+// rather than concluding "not configured".
+const STATUS_ATTEMPTS = 3;
+const STATUS_RETRY_MS = 2000;
+
 type SubmitEventWithAgent = SubmitEvent & {
   agentInvoked?: boolean;
   respondWith?: (value: Promise<unknown>) => void;
 };
 
+/** "walmart.com" for a listing URL; a neutral phrase when the URL does not parse. */
+function listingHost(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return 'the listing';
+  }
+}
+
 export function VitrineApp() {
   const headingId = useId();
   const [webmcp, setWebmcp] = useState<WebmcpStatus>('unavailable');
+  const [modelContext, setModelContext] = useState<ModelContext | null>(null);
+  const [registry, setRegistry] = useState<ToolRegistry | null>(null);
   const [vault, setVault] = useState<VaultState>(SEALED);
   const [arcadeStatus, setArcadeStatus] = useState<ArcadeStatus | null>(null);
+  const [storefront, setStorefront] = useState<StorefrontDefault | null>(null);
   const [stage, setStage] = useState<DemoStage>('browse');
   const [result, setResult] = useState<VitrineSearchResult | null>(null);
   const [comparedIds, setComparedIds] = useState<string[]>([]);
@@ -70,7 +97,6 @@ export function VitrineApp() {
   const resultRef = useRef<VitrineSearchResult | null>(null);
   const comparedRef = useRef<string[]>([]);
   const stageRef = useRef<DemoStage>('browse');
-  const registryRef = useRef<ToolRegistry | null>(null);
 
   const pushEvent = useCallback(
     (actor: TraceActor, title: string, detail: string, arcadeTool?: string) => {
@@ -199,18 +225,64 @@ export function VitrineApp() {
     return built;
   }, [applyResult, loadGiftNotes, moveToStage, pushEvent]);
 
+  // Status: a null answer (throttled, unreachable) keeps whatever the page already
+  // shows and retries; only a real answer, including configured: false, is stored.
   useEffect(() => {
     let active = true;
-    void fetchArcadeStatus().then(status => {
-      if (active) setArcadeStatus(status);
-    });
+    let attempts = 0;
+    let timer: number | null = null;
+    const poll = async () => {
+      const status = await fetchArcadeStatus();
+      if (!active) return;
+      if (status) {
+        setArcadeStatus(status);
+        return;
+      }
+      attempts += 1;
+      if (attempts < STATUS_ATTEMPTS) {
+        timer = window.setTimeout(() => void poll(), STATUS_RETRY_MS);
+      }
+    };
+    void poll();
     return () => {
       active = false;
+      if (timer !== null) window.clearTimeout(timer);
     };
   }, []);
 
+  // Live-first storefront: once the server says live shopping is available, fill
+  // the browse grid with the shop's own default query. This is the storefront's
+  // request, not the shopper's: it never becomes the receipt or moves the seam.
+  const shopping = arcadeStatus?.shopping === true;
   useEffect(() => {
-    const modelContext = detectModelContext(document, navigator);
+    if (!shopping || resultRef.current) return;
+    const controller = new AbortController();
+    void runVitrineSearch(STOREFRONT_DEFAULT_BRIEF, { signal: controller.signal })
+      .then(live => {
+        if (controller.signal.aborted || resultRef.current) return;
+        if (live.merchant === 'recorded_sample' || live.items.length === 0) return;
+        const next: StorefrontDefault = { items: live.items, merchant: live.merchant };
+        if (live.arcadeRequest) next.arcadeRequest = live.arcadeRequest;
+        if (live.cached) next.cached = true;
+        setStorefront(next);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [shopping]);
+
+  // Host detection. Some hosts attach modelContext after first paint, so a miss
+  // at mount polls for a while before the page settles as a plain shop.
+  useEffect(() => {
+    const controller = new AbortController();
+    void waitForModelContext(() => detectModelContext(document, navigator), {
+      signal: controller.signal,
+    }).then(found => {
+      if (found && !controller.signal.aborted) setModelContext(found);
+    });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
     if (!modelContext) return;
     // The host exposes WebMCP; the registry below reports per-tool failures as
     // activity rows and never flips this back.
@@ -218,35 +290,28 @@ export function VitrineApp() {
     setWebmcp('available');
 
     const controller = new AbortController();
-    const registry = createToolRegistry(modelContext, {
+    const nextRegistry = createToolRegistry(modelContext, {
       signal: controller.signal,
       onChange: names => setToolNames(names),
       onError: name => pushEvent('merchant', 'registerTool failed', name),
     });
-    registryRef.current = registry;
+    setRegistry(nextRegistry);
 
-    const onToolChange = () => {
-      const getTools = modelContext.getTools;
-      if (!getTools) return;
-      void Promise.resolve(getTools.call(modelContext))
-        .then(tools => setHostToolNames(tools.map(tool => tool.name).sort()))
-        .catch(() => undefined);
-    };
-    const canObserve = Boolean(modelContext.addEventListener && modelContext.getTools);
-    if (canObserve) modelContext.addEventListener!('toolchange', onToolChange);
+    // Guarded: a host whose toolchange/getTools throws (ChatGPT's browser has)
+    // falls back to the page registry and never blocks registration.
+    const stopObserving = observeHostTools(modelContext, names => setHostToolNames(names));
 
     return () => {
-      if (canObserve) modelContext.removeEventListener?.('toolchange', onToolChange);
-      registryRef.current = null;
+      stopObserving();
+      setRegistry(current => (current === nextRegistry ? null : current));
       controller.abort();
     };
-  }, [pushEvent]);
+  }, [modelContext, pushEvent]);
 
   useEffect(() => {
-    const registry = registryRef.current;
     if (!registry) return;
     void registry.sync(buildVitrineTools(stage, { ...handlers, leaky, onLeak: onLeakReceived }));
-  }, [handlers, leaky, onLeakReceived, stage]);
+  }, [registry, handlers, leaky, onLeakReceived, stage]);
 
   async function onCopyPrompt(prompt: 'agent' | 'leaky') {
     try {
@@ -282,7 +347,7 @@ export function VitrineApp() {
     pushEvent(actor, actor === 'agent' ? 'prepare_selection' : 'Prepare', id);
   }
 
-  const items = result?.shortlist ?? BROWSE_ITEMS;
+  const items = result?.shortlist ?? storefront?.items ?? BROWSE_ITEMS;
   const budget = vault.context?.budgetUsd ?? null;
   const prepared = items.find(item => item.id === preparedId) ?? null;
   const compareReady = comparedIds.length >= 2 && comparedIds.length <= 3;
@@ -454,15 +519,24 @@ export function VitrineApp() {
                   .join(' · ')}
               </p>
               {prepared.url !== '#pick' ? (
-                <HoldButton
-                  label={`Open ${prepared.name}`}
-                  holdMs={700}
-                  onConfirm={() => {
-                    window.open(prepared.url, '_blank', 'noopener');
-                    pushEvent('shopper', 'opened', prepared.name);
-                  }}
-                />
-              ) : null}
+                <div className="space-y-1">
+                  <HoldButton
+                    label={`Open ${prepared.name}`}
+                    holdMs={700}
+                    onConfirm={() => {
+                      window.open(prepared.url, '_blank', 'noopener');
+                      pushEvent('shopper', 'opened', prepared.name);
+                    }}
+                  />
+                  <p className="text-xs text-stone-600">
+                    {prepared.merchantName} · Opens {listingHost(prepared.url)}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-stone-600">
+                  {prepared.merchantName} · recorded sample, this panel is the listing
+                </p>
+              )}
               <p className="text-xs text-stone-500">
                 prepare_selection never navigates. Opening is a separate shopper gesture (WebMCP
                 issue #288 observed an in-app browser clicking a page&apos;s own Approve button).
@@ -473,6 +547,7 @@ export function VitrineApp() {
           <CatalogGrid
             items={items}
             result={result}
+            storefront={storefront}
             comparedIds={comparedIds}
             preparedId={preparedId}
             budgetUsd={budget}
@@ -493,6 +568,7 @@ export function VitrineApp() {
           vault={vault}
           arcadeStatus={arcadeStatus}
           result={result}
+          storefront={storefront}
           events={events}
           toolNames={toolNames}
           hostToolNames={hostToolNames}

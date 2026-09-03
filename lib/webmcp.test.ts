@@ -11,8 +11,11 @@ import {
   compactCatalogToolOutput,
   createToolRegistry,
   detectModelContext,
+  normalizeToolInput,
+  observeHostTools,
   privateFieldsInSchema,
   registerVitrineTools,
+  waitForModelContext,
   type ModelContext,
   type ModelContextTool,
 } from './webmcp.ts';
@@ -517,5 +520,199 @@ describe('createToolRegistry', () => {
     controller.abort();
     assert.ok(signals.every(signal => signal.aborted));
     assert.deepEqual(registry.names(), []);
+  });
+
+  it('keeps registering when the host throws a TypeError from registerTool', async () => {
+    const errors: string[] = [];
+    const context: ModelContext = {
+      registerTool(tool) {
+        if (tool.name === 'load_context') throw new TypeError('registerTool is not a function');
+      },
+    };
+    const registry = createToolRegistry(context, {
+      signal: new AbortController().signal,
+      onError: name => errors.push(name),
+    });
+    await assert.doesNotReject(registry.sync(buildVitrineTools('browse', fullHandlers)));
+    assert.deepEqual(errors, ['load_context']);
+    assert.deepEqual(registry.names(), ['search_products']);
+  });
+});
+
+describe('JSON-string tool input', () => {
+  const tools = buildVitrineTools('compared', {
+    ...fullHandlers,
+    search: async () =>
+      completeSearch(
+        publicBriefFromFixture(),
+        searchInventory(publicBriefFromFixture()),
+        DAD_SCOTLAND_FIXTURE,
+      ),
+  });
+  const byName = (name: string) => {
+    const found = tools.find(entry => entry.name === name);
+    assert.ok(found, name);
+    return found;
+  };
+  const both = async (name: string, input: unknown) => {
+    const asObject = await byName(name).execute(input);
+    const asString = await byName(name).execute(JSON.stringify(input));
+    return { asObject, asString };
+  };
+
+  it('search_products accepts the brief as an object or a JSON string', async () => {
+    const { asObject, asString } = await both('search_products', publicBriefFromFixture());
+    assert.equal(asString, asObject);
+    assert.deepEqual(JSON.parse(asString).receipt, publicBriefFromFixture());
+  });
+
+  it('compare_products accepts ids as an object or a JSON string', async () => {
+    const ids = searchInventory(publicBriefFromFixture())
+      .slice(0, 2)
+      .map(item => item.id);
+    const { asObject, asString } = await both('compare_products', { ids });
+    assert.equal(asString, asObject);
+    assert.deepEqual(
+      (JSON.parse(asString) as { compared: Array<{ id: string }> }).compared.map(row => row.id),
+      ids,
+    );
+  });
+
+  it('prepare_selection accepts the id as an object or a JSON string', async () => {
+    const [first] = searchInventory(publicBriefFromFixture());
+    const { asObject, asString } = await both('prepare_selection', { id: first.id });
+    assert.equal(asString, asObject);
+    assert.equal((JSON.parse(asString) as { prepared: { id: string } }).prepared.id, first.id);
+  });
+
+  it('load_context accepts {} as an object or a JSON string', async () => {
+    const { asObject, asString } = await both('load_context', {});
+    assert.equal(asString, asObject);
+    assert.equal(JSON.parse(asString).recipient, 'Dad');
+  });
+
+  it('answers an unparseable string with { error, hint } and still rejects private keys', async () => {
+    const broken = JSON.parse(await byName('search_products').execute('{not json')) as Record<
+      string,
+      string
+    >;
+    assert.deepEqual(Object.keys(broken), ['error', 'hint']);
+    const leaky = JSON.parse(
+      await byName('search_products').execute(
+        JSON.stringify({ ...publicBriefFromFixture(), destination: 'Scotland' }),
+      ),
+    ) as Record<string, string>;
+    assert.equal(leaky.error, 'Merchant rejected unexpected fields: destination');
+    assert.deepEqual(
+      normalizeToolInput('"just a string"'),
+      { ok: true, input: 'just a string' },
+      'a JSON string that decodes to a non-object passes through to the usual validation',
+    );
+  });
+});
+
+describe('waitForModelContext', () => {
+  it('resolves immediately when the host is already present', async () => {
+    const modelContext: ModelContext = { registerTool() {} };
+    const found = await waitForModelContext(() => modelContext, {
+      signal: new AbortController().signal,
+    });
+    assert.equal(found, modelContext);
+  });
+
+  it('polls until a late host appears', async () => {
+    const modelContext: ModelContext = { registerTool() {} };
+    let probes = 0;
+    const found = await waitForModelContext(() => (++probes >= 3 ? modelContext : null), {
+      signal: new AbortController().signal,
+      intervalMs: 5,
+      timeoutMs: 1000,
+    });
+    assert.equal(found, modelContext);
+    assert.equal(probes, 3);
+  });
+
+  it('gives up after the timeout and on abort, and treats a throwing getter as absent', async () => {
+    const missing = await waitForModelContext(() => null, {
+      signal: new AbortController().signal,
+      intervalMs: 5,
+      timeoutMs: 20,
+    });
+    assert.equal(missing, null);
+
+    const controller = new AbortController();
+    const pending = waitForModelContext(() => null, {
+      signal: controller.signal,
+      intervalMs: 5,
+      timeoutMs: 10_000,
+    });
+    controller.abort();
+    assert.equal(await pending, null);
+
+    const throwing = await waitForModelContext(
+      () => {
+        throw new TypeError('Illegal invocation');
+      },
+      { signal: new AbortController().signal, intervalMs: 5, timeoutMs: 20 },
+    );
+    assert.equal(throwing, null);
+  });
+});
+
+describe('observeHostTools', () => {
+  it('mirrors getTools after toolchange', async () => {
+    let listener: (() => void) | null = null;
+    const context: ModelContext = {
+      registerTool() {},
+      getTools: async () => [{ name: 'search_products' }, { name: 'load_context' }],
+      addEventListener(_type, fn) {
+        listener = fn;
+      },
+      removeEventListener() {
+        listener = null;
+      },
+    };
+    const seen: Array<string[] | null> = [];
+    const stop = observeHostTools(context, names => seen.push(names));
+    assert.ok(listener);
+    (listener as () => void)();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.deepEqual(seen, [['load_context', 'search_products']]);
+    stop();
+    assert.equal(listener, null);
+  });
+
+  it('never throws when addEventListener, getTools, or removeEventListener throw', async () => {
+    const seen: Array<string[] | null> = [];
+    const throwingListener: ModelContext = {
+      registerTool() {},
+      getTools: () => [],
+      addEventListener() {
+        throw new TypeError('Illegal invocation');
+      },
+    };
+    const stopA = observeHostTools(throwingListener, names => seen.push(names));
+    assert.deepEqual(seen, [null]);
+    assert.doesNotThrow(stopA);
+
+    let listener: (() => void) | null = null;
+    const throwingGetTools: ModelContext = {
+      registerTool() {},
+      getTools() {
+        throw new TypeError('Illegal invocation');
+      },
+      addEventListener(_type, fn) {
+        listener = fn;
+      },
+      removeEventListener() {
+        throw new TypeError('Illegal invocation');
+      },
+    };
+    const seenB: Array<string[] | null> = [];
+    const stopB = observeHostTools(throwingGetTools, names => seenB.push(names));
+    assert.ok(listener);
+    assert.doesNotThrow(listener as () => void);
+    assert.deepEqual(seenB, [null]);
+    assert.doesNotThrow(stopB);
   });
 });

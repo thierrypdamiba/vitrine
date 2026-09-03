@@ -4,7 +4,9 @@ import type { ArcadeStatus } from '@/lib/arcade-types';
 
 /**
  * Names the exact Arcade tools the server calls and whether each is connected.
- * Booleans only: the status route never returns token text or URLs.
+ * Booleans only: the status route never returns token text or URLs. A null
+ * status means the route has not answered yet (or was throttled); that is not
+ * the same as "not configured", so the panel says it is still checking.
  */
 export function ArcadePanel({ status }: { status: ArcadeStatus | null }) {
   const rows = status?.configured
@@ -56,6 +58,8 @@ export function ArcadePanel({ status }: { status: ArcadeStatus | null }) {
             </li>
           ))}
         </ul>
+      ) : status === null ? (
+        <p className="mt-2 text-sm text-stone-600">Checking the server&apos;s Arcade status…</p>
       ) : (
         <p className="mt-2 text-sm text-stone-600">
           Arcade is not configured on this deployment. The demo fixture and recorded sample run

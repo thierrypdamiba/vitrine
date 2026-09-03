@@ -96,16 +96,45 @@ describe('fetchArcadeStatus', () => {
     });
   });
 
-  it('returns all false when the route fails', async () => {
-    const status = await fetchArcadeStatus(async () => {
-      throw new Error('offline');
-    });
+  it('reports configured: false when the route says so', async () => {
+    const status = await fetchArcadeStatus(async () =>
+      json({ configured: false, gmailRead: false, calendar: false, shopping: false }),
+    );
     assert.deepEqual(status, {
       configured: false,
       gmailRead: false,
       calendar: false,
       shopping: false,
     });
+  });
+
+  it('returns null, not "not configured", when the route is throttled or down', async () => {
+    assert.equal(
+      await fetchArcadeStatus(async () => json({ error: 'Too many vault requests.' }, 429)),
+      null,
+    );
+    assert.equal(
+      await fetchArcadeStatus(async () =>
+        json({ error: 'Vault routes only serve this page.' }, 403),
+      ),
+      null,
+    );
+    assert.equal(
+      await fetchArcadeStatus(async () =>
+        json({ configured: true, gmailRead: false, calendar: false, shopping: false }, 502),
+      ),
+      null,
+    );
+    assert.equal(
+      await fetchArcadeStatus(async () => new Response('<html>', { status: 200 })),
+      null,
+    );
+    assert.equal(
+      await fetchArcadeStatus(async () => {
+        throw new Error('offline');
+      }),
+      null,
+    );
   });
 });
 

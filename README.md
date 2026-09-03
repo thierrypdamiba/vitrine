@@ -71,6 +71,10 @@ Registered on `document.modelContext` (with a `navigator.modelContext` fallback)
   server adapter, not a frame.
 - Every tool has a title, a description under 500 characters, property descriptions under 150,
   and a 1,500-character output budget (`MAX_TOOL_OUTPUT_CHARS`).
+- Host compatibility: if `modelContext` is absent at mount the page polls every 500 ms for up to
+  10 s before settling as a plain shop; every call into the host (`registerTool`, `getTools`,
+  `addEventListener`) is wrapped so a throwing host never blocks registration; and `execute`
+  accepts its arguments as an object or as a JSON string.
 
 ## Privacy boundary
 
@@ -158,7 +162,9 @@ Luna, site tools enabled under Settings > Browser > Permissions), and Chrome 149
 `chrome://flags/#enable-webmcp-testing` enabled.
 
 1. Open the live URL. The sidebar reads "Agent knows 0 facts / Shop received 0 fields" and the
-   vault is sealed. The grid shows the browse catalog; no search has run.
+   vault is sealed. The grid shows the storefront's own default query (size M, live Walmart or
+   Google Shopping via Arcade when the server has a key, otherwise the labeled recorded sample);
+   the header says "storefront default, no shopper request yet" and the seam stays at 0 / 0.
 2. Click **Copy agent prompt** and paste it into the agent. The prompt contains no private fact.
 3. The agent calls `load_context`. The vault fills, labeled "from Arcade Gmail" or "demo fixture".
 4. The agent calls `search_products` with only `category`, `size`, `features`, `colors`. Read
