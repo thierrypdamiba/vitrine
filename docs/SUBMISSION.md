@@ -64,7 +64,15 @@ waterproof, packable, navy, olive. "No Dad. No Scotland. No budget."
 ## Before the deadline
 
 1. Push to GitHub, public. Confirm the MIT license badge shows in the About panel.
-2. Deploy. Open the URL in a private window while signed out; it must load.
-3. Record and upload the video as public (not unlisted).
-4. Fill the Devpost form with the description, URLs, and testing note above.
-5. Freeze the repo, site, and entry until judging ends (September 21).
+2. Deploy with ChatGPT Sites (ChatGPT web or desktop, not the CLI): open the Sites project
+   for `.openai/hosting.json`'s `project_id`, add hosted secrets `ARCADE_API_KEY`,
+   `ARCADE_USER_ID`, `ARCADE_CONTEXT_QUERY` in the Site's settings, then ask ChatGPT to
+   "Deploy this project with Sites" (save a version, then deploy it).
+3. In the Site's sharing settings set the audience to **Anyone on the internet**. Owner-only
+   or workspace-only fails judging. Open the URL in a private window while signed out.
+4. Record and upload the video as public (not unlisted).
+5. Fill the Devpost form with the description, URLs, and testing note above.
+6. Freeze the repo, site, and entry until judging ends (September 21).
+
+Source: https://learn.chatgpt.com/docs/sites (Sites is available on Plus, Pro, Business,
+Enterprise and Edu plans).

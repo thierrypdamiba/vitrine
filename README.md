@@ -46,9 +46,10 @@ npm run test:bdd  # Gherkin scenarios in features/
 
 ## Hosting
 
-The live URL must be public. ChatGPT Sites projects default to owner-only, which fails judging.
-In the Sites project settings, set visibility so anyone with the link can open the app without
-signing in as the owner.
+The live URL must be public. Deploy from ChatGPT web or desktop ("Deploy this project with
+Sites"); the project link is in `.openai/hosting.json`. In the Site's settings add the Arcade
+secrets from `.env.example`, and set the sharing audience to **Anyone on the internet**.
+Owner-only or workspace-only Sites fail judging.
 
 ## Connect Arcade
 
