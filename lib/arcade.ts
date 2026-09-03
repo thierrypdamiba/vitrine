@@ -68,10 +68,12 @@ function parseList<T extends string>(
 function extractLabeledFields(input: string): Map<string, string> {
   const fields = new Map<string, string>();
   for (const line of input.split(/\r?\n/)) {
-    const match = /^([a-zA-Z]+)\s*:\s*(.+)$/.exec(line.trim());
-    if (!match) continue;
-    const key = match[1].toLowerCase();
-    if (!fields.has(key)) fields.set(key, match[2].trim());
+    // A collapsed line such as "Recipient: Dad Relationship: father" still yields both fields.
+    const pattern = /\b([a-zA-Z]+)\s*:\s*(.+?)(?=\s+[a-zA-Z]+\s*:\s|$)/g;
+    for (const match of line.trim().matchAll(pattern)) {
+      const key = match[1].toLowerCase();
+      if (!fields.has(key)) fields.set(key, match[2].trim());
+    }
   }
   return fields;
 }
@@ -215,13 +217,15 @@ export async function beginArcadeAuthorization(
 }
 
 function textFromEmail(email: Record<string, unknown>): string | null {
+  // Gmail's snippet collapses newlines, which would fold every labeled field into one
+  // line. Read the full bodies first so labeled parsing sees one field per line.
   const parts = [
     email.subject,
-    email.snippet,
     email.body,
     email.plain_text,
     email.text,
     email.html_body,
+    email.snippet,
   ];
   const chunks = parts.filter(
     (part): part is string => typeof part === 'string' && part.trim().length > 0,

@@ -14,6 +14,9 @@ export const ARCADE_WALMART_TOOL = 'Walmart.SearchProducts';
 const MAX_LIVE_ITEMS = 8;
 
 function parsePriceUsd(value: unknown): number | null {
+  if (isRecord(value)) {
+    return parsePriceUsd(value.value ?? value.amount ?? value.price);
+  }
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
     return Math.round(value);
   }
@@ -96,10 +99,12 @@ export function parseShoppingProducts(value: unknown, merchant: MerchantSource):
     );
     if (!name || priceUsd === null) continue;
     const url = firstString(
+      row.direct_link,
       row.product_link,
       row.product_page_url,
       row.link,
       row.url,
+      row.google_link,
       row.serpapi_product_api,
     );
     const imageUrl = firstString(
@@ -108,8 +113,9 @@ export function parseShoppingProducts(value: unknown, merchant: MerchantSource):
       Array.isArray(row.thumbnails) ? row.thumbnails[0] : undefined,
       Array.isArray(row.product_photos) ? row.product_photos[0] : undefined,
     );
+    const seller = isRecord(row.seller) ? row.seller.name : row.seller;
     const merchantName =
-      firstString(row.source, row.merchant, row.seller, row.seller_name, offer.seller) ??
+      firstString(row.source, row.merchant, seller, row.seller_name, offer.seller) ??
       (merchant === 'walmart' ? 'Walmart' : 'Google Shopping');
     items.push({
       id: firstString(row.product_id, row.id) ?? slugId(name, index),
@@ -117,7 +123,7 @@ export function parseShoppingProducts(value: unknown, merchant: MerchantSource):
       priceUsd,
       imageUrl: imageUrl ?? '',
       merchantName,
-      rating: parseRating(row.rating ?? row.stars),
+      rating: parseRating(row.rating ?? row.product_rating ?? row.stars),
       url: url ?? `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(name)}`,
       features: featuresFromText(name),
       colors: colorsFromText(name),
@@ -133,7 +139,11 @@ async function executeProductSearch(
   toolName: string,
   merchantQuery: string,
 ): Promise<unknown> {
-  const attempts: Record<string, string>[] = [{ query: merchantQuery }, { q: merchantQuery }];
+  // Both Arcade SERP tools (GoogleShopping.SearchProducts, Walmart.SearchProducts) take `keywords`.
+  const attempts: Record<string, string>[] = [
+    { keywords: merchantQuery },
+    { query: merchantQuery },
+  ];
   let lastError: unknown;
   for (const input of attempts) {
     try {

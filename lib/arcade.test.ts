@@ -56,6 +56,15 @@ describe('Arcade context parsing', () => {
     );
   });
 
+  it('parses labeled fields even when Gmail collapses them onto one snippet line', () => {
+    const collapsed = contextRecord.replace(/\n/g, ' ');
+    const context = parseArcadeContextRecord(`Vitrine shopping context\n${collapsed}`);
+    assert.equal(context.recipient, 'Dad');
+    assert.equal(context.destination, 'Scotland');
+    assert.deepEqual(context.colors, ['navy', 'olive']);
+    assert.equal(context.budgetUsd, 250);
+  });
+
   it('reads a normal Gmail thread without labeled fields', () => {
     const context = parseArcadeContextRecord(naturalRecord);
     assert.equal(context.recipient, 'Dad');
