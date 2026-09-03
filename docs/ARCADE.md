@@ -14,7 +14,7 @@ loads a labeled demo fixture and the shop searches a labeled recorded sample.
 
 The two `/api/arcade/*` routes serve only the page: `guardVaultRequest` rejects requests that are
 not same-origin (`Sec-Fetch-Site: same-origin` or a matching `Origin`) with 403, and throttles
-each client to 20 requests a minute with 429. They never trigger an authorization flow and never
+each client to 60 requests a minute with 429. They never trigger an authorization flow and never
 return an authorization URL; when Gmail is not authorized the server logs a warning and the page
 falls back to the fixture. Successful context and status responses are memoized for five minutes
 per isolate, so judging traffic reads the mailbox at most every five minutes.
