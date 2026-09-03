@@ -10,7 +10,7 @@ the deployed page the same night. Bracketed `[if shipped]` conditionals were str
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
 | Public repository with source, assets, setup               | https://github.com/thierrypdamiba/vitrine (public, MIT)      |
 | Open-source license visible at repo root                   | `LICENSE` (MIT)                                              |
-| Testing instructions incl. agents/clients used             | below, and `README.md` → "Test the WebMCP tools"             |
+| Testing instructions incl. agents/clients used             | below, `JUDGE.md`, and `README.md` → "Test the WebMCP tools" |
 | Working live URL (ChatGPT in-app browser or Chrome + flag) | deploy from ChatGPT Sites, audience "Anyone on the internet" |
 | YouTube demo, under 3 minutes, with audio                  | shot list below                                              |
 | Text description                                           | below                                                        |
@@ -77,15 +77,18 @@ running the agent prompt on the owner-only deploy:
 **Vitrine — a jacket shop that never learns why you are shopping.**
 
 **Why WebMCP fits.** An agent that shops for you knows things a merchant should not: who the gift
-is for, where they are going, when, and what you can spend. Through a search box that context
-leaks by default, and the WebMCP draft names the failure mode in §6.3.3, "Privacy Leakage Through
-Over-Parameterization": a site can publish a tool that asks for age, location, and history "for
-personalization," and the agent helpfully fills it in. WebMCP is the first surface where a merchant
-can say exactly what it accepts, in a typed schema, on the page the shopper is looking at.
-Vitrine's `search_products` accepts `category`, `size`, `features`, `colors` (enums,
-`additionalProperties: false`). There is no field for the occasion, so the occasion cannot be
-sent, and the server returns HTTP 400 for any extra key before any inventory is searched. No
-sponsor example addresses this; Vitrine makes it the product.
+is for, where they are going, when, and what you can spend. The agent belongs to the person: it
+translates those private reasons into neutral catalog attributes on the person's side, and the shop
+only publishes a schema. Through a search box that context leaks by default, and the WebMCP draft
+names the failure mode in §6.3.3, "Privacy Leakage Through Over-Parameterization": a site can
+publish a tool that asks for age, location, and history "for personalization," and the agent
+helpfully fills it in. WebMCP is the first surface where a merchant can say exactly what it
+accepts, in a typed schema, on the page the shopper is looking at. Vitrine's `search_products`
+accepts `category`, `size`, `features`, `colors` (enums, `additionalProperties: false`). There is
+no field for the occasion, so the occasion cannot be sent, and the server returns HTTP 400 for any
+extra key before any inventory is searched. Several entries keep private context with the agent;
+Vitrine makes the merchant side of that line inspectable: a schema that cannot carry the reason
+and a receipt of what the merchant received.
 
 **How it creates a better user experience.** The shop starts sealed: the sidebar reads "Agent
 knows 0 facts / Shop received 0 fields." The agent calls `load_context` and the vault fills with

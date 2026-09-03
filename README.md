@@ -9,6 +9,12 @@ received: **Agent knows 9 facts / Shop received 4 fields.** There is no field fo
 so the occasion cannot be sent, and the merchant adapter returns HTTP 400 for any extra key before
 any inventory is searched.
 
+The agent belongs to the person, not the shop. It translates private reasons ("Dad, Scotland,
+October, rainy, $250") into neutral catalog attributes on the person's side; the shop only
+publishes a schema and shows a receipt of what it received. There is no site chatbot.
+
+Judging in 60 seconds: [JUDGE.md](JUDGE.md).
+
 New project created during the Submission Period: first commit 2026-08-26, history unmodified.
 
 ## WebMCP surface
@@ -35,6 +41,17 @@ Registered on `document.modelContext` (with a `navigator.modelContext` fallback)
   demonstration, not product behavior; ChatGPT's safety review may decline it. It is the
   over-parameterized tool from WebMCP draft section 6.3.3, reproduced so a judge can watch the same
   agent volunteer everything the moment a schema asks. Nothing it receives leaves the page.
+
+### What this shop deliberately does not offer
+
+- No free-text `search_catalog` or `query` tool: a string field is a place to type the occasion,
+  so there is none.
+- No `occasion`, `notes`, or `budget` field on any tool: the schema has no room for the reason,
+  and the merchant adapter returns 400 for any key it does not list.
+- No shopper-profile or memory tool: the agent already holds the shopper's context on the
+  person's side; the shop never asks for it back.
+- No site chatbot: the shop has no agent of its own, so there is nothing on the merchant side
+  that needs to know why you are shopping.
 
 ## Lifecycle
 
@@ -76,6 +93,20 @@ it. The guarantees are layered:
 
 The sidebar's **Try to leak** button sends `destination` and `budgetUsd` on purpose and prints the
 adapter's literal 400.
+
+## Measured
+
+Numbers a judge can reproduce from this checkout (2026-09-03, dev server on :3001).
+
+| What                                        | Value                                            | How                                                   |
+| ------------------------------------------- | ------------------------------------------------ | ----------------------------------------------------- |
+| Tools registered on `document.modelContext` | 4 (+1 opt-in demonstration, +1 Chrome-only form) | table above; `lib/webmcp.ts`                          |
+| Fields the shop can receive                 | 4 (`category`, `size`, `features`, `colors`)     | `CATALOG_SEARCH_INPUT_SCHEMA`, `parsePublicBrief`     |
+| Private facts the agent holds               | 9                                                | `DAD_SCOTLAND_FIXTURE` in `lib/vitrine.ts`; the vault |
+| Keys in the Arcade search input             | 1 (`keywords`)                                   | test "sends only keywords to Arcade"                  |
+| Unit tests                                  | 109 passing (37 suites)                          | `npm test`                                            |
+| BDD scenarios                               | 8 passing (24 steps)                             | `npm run test:bdd`                                    |
+| Private markers in the SSR HTML             | 0                                                | `npm run check:ssr`                                   |
 
 ## Shopper gesture
 
@@ -122,7 +153,7 @@ npm run test:evals  # webmcp-evals smoke against a running dev server; see evals
 
 ## Test the WebMCP tools
 
-Clients used: ChatGPT's in-app browser (desktop app, Plus/Pro plan, GPT-5.6 Sol or Terra, not
+The shortest path is in [JUDGE.md](JUDGE.md). Clients used: ChatGPT's in-app browser (desktop app, Plus/Pro plan, GPT-5.6 Sol or Terra, not
 Luna, site tools enabled under Settings > Browser > Permissions), and Chrome 149+ with
 `chrome://flags/#enable-webmcp-testing` enabled.
 
