@@ -1,52 +1,104 @@
 # Arcade connection
 
-Vitrine uses Arcade in two places. The vault can read a normal Gmail thread and an optional
-Calendar event. The merchant adapter can search Google Shopping, then Walmart, using only the
-public brief. The demo vault and recorded product sample still run without credentials.
+This is the exact map of every Arcade call Vitrine makes. Arcade runs only on the server. The API
+key never reaches the browser. The judging path needs no credentials: without Arcade the vault
+loads a labeled demo fixture and the shop searches a labeled recorded sample.
 
-## Server configuration
+## Routes
 
-Create an Arcade API key and keep it on the server. Never expose it through a `NEXT_PUBLIC_`
-variable or commit it.
+| Route                 | Method | Arcade tools                                                  | Response                                                                                                           |
+| --------------------- | ------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `/api/arcade/status`  | GET    | `tools.get` for the three tools below (no execution)          | `{ configured, gmailRead, calendar, shopping }`, booleans only. No token status text, no URLs.                     |
+| `/api/arcade/context` | POST   | `Gmail.SearchEmailsByQuery`, then `GoogleCalendar.ListEvents` | `200 { context }`; `401 { error: 'Gmail is not authorized on this server.' }`; `503` not configured; `422`; `502`. |
+| `/api/catalog/search` | POST   | `Walmart.SearchProducts` / `GoogleShopping.SearchProducts`    | `{ receipt, merchantQuery, merchant, items, arcadeRequest?, cached? }` or `400 { error }` for any extra key.       |
 
-```sh
-cp .env.example .env.local
+The two `/api/arcade/*` routes serve only the page: `guardVaultRequest` rejects requests that are
+not same-origin (`Sec-Fetch-Site: same-origin` or a matching `Origin`) with 403, and throttles
+each client to 20 requests a minute with 429. They never trigger an authorization flow and never
+return an authorization URL; when Gmail is not authorized the server logs a warning and the page
+falls back to the fixture. Successful context and status responses are memoized for five minutes
+per isolate, so judging traffic reads the mailbox at most every five minutes.
+
+`/api/catalog/search` is not rate-limited (agents call it); a keyword cache is the quota guard.
+
+## Exact Arcade inputs
+
+`Gmail.SearchEmailsByQuery` (`lib/arcade.ts`):
+
+```json
+{ "query": "<ARCADE_CONTEXT_QUERY>", "result_detail": "full", "max_results": 5 }
 ```
 
-Set these values in `.env.local`:
+`GoogleCalendar.ListEvents` (optional; a failure or missing authorization yields no Calendar row):
 
-- `ARCADE_API_KEY`: an Arcade project API key
-- `ARCADE_USER_ID`: the Arcade user identifier that authorizes Gmail and Calendar
-- `ARCADE_CONTEXT_QUERY`: optional Gmail query. Default matches recent jacket, trip, or gift mail
+```json
+{ "calendar_id": "primary", "min_end_datetime": "<now>", "max_start_datetime": "<now + 180 days>" }
+```
 
-Google Shopping and Walmart need the Arcade project's `SERP_API_KEY` secret. They do not need
-shopper OAuth. If that secret is missing, Vitrine labels the recorded sample instead of pretending
-the results are live.
+`Walmart.SearchProducts` and `GoogleShopping.SearchProducts` (`lib/shopping.ts`):
 
-The same API key and user id must be configured as secrets in the hosted Sites environment. The
-hosted URL must be public.
+```json
+{ "keywords": "XL waterproof packable navy olive jacket" }
+```
 
-## Vault records
+`keywords` is the only input key. It is built by `merchantQueryFromBrief` from the validated enum
+values of the accepted public brief and nothing else; the sidebar prints this object verbatim as
+"Exact Arcade call". `Walmart.SearchProducts` also accepts `sort_by`, `min_price`, `max_price`,
+`next_day_delivery`, and `page` (verified via Arcade `tools.get` on 2026-09-03; see
+`WALMART_ACCEPTS` in `lib/vitrine.ts`). Vitrine never fills `max_price`: the budget ranks results
+on the shopper's side after they return.
 
-A plain-text thread is enough. This works:
+Adapter order: [if shipped] Walmart first, Google Shopping fallback, decided by one real query on
+2026-09-03 (see "Hosted status" in `docs/SUBMISSION.md`); otherwise Google Shopping first, Walmart
+fallback. Live rows are [if shipped] filtered for women's, kids', and plus-size titles and rows
+that match none of the brief; if fewer than three remain the route returns the recorded sample and
+labels it. Live and sample rows are never mixed.
+
+## Limitations
+
+- No product images. Neither Arcade SERP tool returns usable image URLs for these rows, and
+  `Walmart.GetProductDetails` has none either, so the cards render swatches instead of pictures.
+- `GoogleShopping.SearchProducts` has no price parameter at all.
+- Both shopping tools need the Arcade project secret `SERP_API_KEY`; they do not need shopper
+  OAuth. If the secret is missing, `shopping` is false in the status and the shop labels the
+  recorded sample.
+
+## Single-mailbox disclosure
+
+The hosted demo reads one demo Google account owned by the author, identified by
+`ARCADE_USER_ID`. There is no per-visitor Gmail access and no visitor OAuth; the vault everyone sees
+is the same demo mailbox, which contains one message matching `ARCADE_CONTEXT_QUERY`. The
+credential-free fallback, `DAD_SCOTLAND_FIXTURE`, is embedded in the client bundle and labeled
+"Demo fixture. Arcade is not connected on this host." when it is used.
+
+## Vault record
+
+A plain-text message is enough. This parses:
 
 ```text
 Hey, can you find a jacket for Dad? He's going to Scotland in October and it will rain the whole
 time. Keep it under $250. He's XL. Waterproof and packable, navy or olive.
 ```
 
-Labeled fields still parse if someone sends them. The merchant never receives the email.
+Labeled fields (`Recipient: Dad`, `Size: XL`, ...) also parse. Values are bounded to 80 characters,
+size/features/colors must be catalog enums, and the budget must be an integer from 1 to 10000.
+The merchant never receives the message; `lib/shopping.ts` cannot import the Gmail loaders, and a
+source-scan test enforces that.
 
-Click **Run private shopping demo**. If Google authorization is missing, Vitrine shows Arcade's
-HTTPS authorization link. Complete that flow and run the demo again.
+## Server configuration
 
-## Privacy boundary
+```sh
+cp .env.example .env.local
+```
 
-- Vault route: Gmail and Calendar. The browser vault may show the parsed facts. The merchant panel
-  cannot.
-- Merchant route: public brief only. It builds `XL waterproof packable navy olive jacket` and
-  sends that shopping request. It does not import Gmail loaders.
-- `search_products` arguments are `category`, `size`, `features`, and `colors`.
+| Key                    | Meaning                                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
+| `ARCADE_API_KEY`       | Arcade project API key. Server only; never `NEXT_PUBLIC_`, never committed.               |
+| `ARCADE_USER_ID`       | The Arcade user id whose Gmail (and optionally Calendar) is authorized: the demo account. |
+| `ARCADE_CONTEXT_QUERY` | Gmail search query for the vault message. Optional; the default matches recent gift mail. |
+
+The same three values go in the hosted Site's settings. Google authorization is an owner-only step
+done outside the app (`npm run arcade:authorize` [if shipped]); the public routes never start it.
 
 Official references:
 

@@ -1,105 +1,119 @@
 # Vitrine Architecture
 
-**Version:** 1.1  
-**Last Updated:** 2026-08-28  
-**Status:** Proposed
+**Version:** 2.0  
+**Last Updated:** 2026-09-03  
+**Status:** Active
 
 ## Overview
 
-Vitrine is the private vault. Google Shopping or Walmart is the merchant. The vault page can read
-Gmail and Calendar through Arcade, derive a public brief, and wait for the shopper to share it.
-The merchant adapter accepts only that brief, turns it into a shopping request, and returns a
-receipt plus product cards. Private values never enter the merchant DOM.
+Vitrine is the jacket shop and the shopper's vault on one page. The agent reads the shopper's gift
+notes into the vault (`load_context`, backed by Gmail through Arcade on the server, or a labeled
+fixture). The merchant adapter accepts only the public brief, turns it into a one-key Arcade
+shopping request, and echoes the accepted brief back as the receipt. The sidebar counts what the
+agent knows and what the shop received from that receipt. Private values never reach the merchant
+adapter, the Arcade shopping call, or the SSR HTML.
 
 ## Layers and boundaries
 
-| Layer | Location | Responsibility |
-| --- | --- | --- |
-| Vault UI | `app/vitrine-app.tsx` | Private facts, consent, trace, judge prompt |
-| Merchant UI | `app/merchant-panel.tsx` | Receipt, product cards, compare, prepare. No private context props |
-| Domain | `lib/vitrine.ts` | Public-brief validation, ranking, vault/merchant view split |
-| Workflow | `lib/session.ts` | Stage tools, consent, compare/prepare recovery |
-| WebMCP bridge | `lib/webmcp.ts` | Imperative tools, cancellation, untrusted merchant output |
-| Vault Arcade | `lib/arcade.ts` | Natural Gmail parse and optional Calendar summary |
-| Merchant Arcade | `lib/shopping.ts` | Google Shopping / Walmart search. No Gmail imports |
-| Merchant adapter | `app/api/catalog/search/route.ts` | Strict request validation and server-derived receipt |
+| Layer            | Location                                       | Responsibility                                                                      |
+| ---------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Page             | `app/vitrine-app.tsx`                          | Sealed vault state, registry effect, actor-tagged activity, filter form, grid       |
+| Sidebar          | `app/demo-sidebar.tsx`, `app/arcade-panel.tsx` | Seam counters, vault, literal receipt, exact Arcade call, Try to leak, tool strip   |
+| Domain           | `lib/vitrine.ts`                               | Public-brief validation, ranking, withheld facts, judge prompts                     |
+| Catalog          | `lib/catalog-data.ts`                          | House-brand recorded sample                                                         |
+| Workflow         | `lib/session.ts`                               | Stage tool lists, `{ error, hint }` messages, trace events                          |
+| WebMCP bridge    | `lib/webmcp.ts`                                | Tool table, annotations, per-tool AbortController registry, output budget           |
+| Leak demo        | `lib/leaky.ts`                                 | `personalize_for_shopper` (spec 6.3.3 reproduction), page-local ledger, no network  |
+| Vault client     | `lib/vault.ts`                                 | `loadVault`, `fetchArcadeStatus`, `probeMerchantRejection`                          |
+| Vault Arcade     | `lib/arcade.ts`                                | Gmail parse, optional Calendar summary, boolean status                              |
+| Merchant Arcade  | `lib/shopping.ts`                              | Walmart / Google Shopping search with `{ keywords }`. No Gmail imports              |
+| Merchant adapter | `app/api/catalog/search/route.ts`              | Strict request validation, server-derived receipt, `arcadeRequest` echo             |
+| Vault routes     | `app/api/arcade/context/route.ts`, `.../status` | Same-origin guard, rate limit, memo; never an authorization URL                     |
 
 ## Data flow
 
 ```text
-Arcade Gmail/Calendar or demo vault
+page load: vault sealed, browse catalog, no request
             |
             v
-Agent derives public brief
-            |
-            v
-Shopper submits share_brief
-            |
+load_context -> POST /api/arcade/context -> Gmail.SearchEmailsByQuery (+ GoogleCalendar.ListEvents)
+            |            (or the labeled fixture when Arcade is not connected)
             v
 search_products (category, size, features, colors)
             |
             v
-Merchant adapter -> Google Shopping or recorded sample
+POST /api/catalog/search -> parsePublicBrief (400 on any extra key)
             |
             v
-Receipt + product cards (no private values)
+Walmart.SearchProducts / GoogleShopping.SearchProducts { keywords }  (or the recorded sample)
             |
             v
-compare_products -> prepare_selection -> shopper opens listing
+receipt + arcadeRequest + items -> sidebar seam "9 facts / 4 fields", budget ranks on the page
+            |
+            v
+compare_products -> prepare_selection -> shopper opens the listing (separate gesture)
 ```
 
 ## Key decisions
 
-### This site is the vault, not the store
+### The schema is the seam
 
 **Status:** Active  
-**Date:** 2026-08-28
+**Date:** 2026-09-03
 
-| Field | Value |
-| --- | --- |
-| What | Treat Vitrine as the agent vault. The merchant is Google Shopping or Walmart. |
-| Why | If Vitrine both reads Gmail and is the store, the privacy claim is already false. |
-| Trade-off | One origin still hosts both routes. The proof is the merchant request, receipt, and DOM split, plus a shopping module that cannot import Gmail loaders. |
-| Alternatives | Two origins. Stronger isolation, but ChatGPT exposes WebMCP on the top-level page, not a cross-origin iframe. |
-| Implementation | `lib/shopping.ts`, `app/merchant-panel.tsx`, `lib/vitrine.ts` |
+| Field          | Value                                                                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| What           | `search_products` has four enum fields and `additionalProperties: false`; the server rejects any extra key with 400 before any search.   |
+| Why            | Spec section 6.3.3 names over-parameterization as the attack. A schema with no room is the site-side fix, and the receipt proves it.     |
+| Trade-off      | The merchant cannot personalize. That is the product.                                                                                    |
+| Alternatives   | A consent step before search. Superseded on 2026-09-03: a gate is a caption; the schema is a boundary.                                   |
+| Implementation | `lib/webmcp.ts`, `lib/vitrine.ts`, `app/api/catalog/search/route.ts`                                                                    |
 
-### The shopper shares the brief
-
-**Status:** Active  
-**Date:** 2026-08-28
-
-| Field | Value |
-| --- | --- |
-| What | `search_products` runs only after the shopper submits `share_brief`. |
-| Why | Disclosure has to be an action, not a caption next to withheld facts. |
-| Trade-off | The demo has two human steps: run, then share. |
-| Alternatives | Auto-search after loading the vault. Faster, and it hides the gate. |
-| Implementation | `app/vitrine-app.tsx`, `lib/webmcp.ts` |
-
-### Arcade is vault infrastructure and merchant search, not a config file
+### The page starts sealed; the agent loads the vault
 
 **Status:** Active  
-**Date:** 2026-08-28
+**Date:** 2026-09-03
 
-| Field | Value |
-| --- | --- |
-| What | Parse a normal Gmail thread, optionally a Calendar event, and search live products. Keep a fixture and recorded sample when Arcade is missing. |
-| Why | Judges cannot be required to OAuth, and live shopping needs a server secret. |
-| Trade-off | Recorded cards are labeled when live search is not configured. |
-| Alternatives | Arcade on the only path, or fake a connected store. |
-| Implementation | `lib/arcade.ts`, `lib/shopping.ts` |
+| Field          | Value                                                                                                                                  |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| What           | No vault load and no catalog search on mount. `load_context` (or the shopper's "Load gift notes" button) fills the vault; the first `search_products` is the first adapter hit. |
+| Why            | The seam counters must start at 0 / 0 and be derived from real requests; the SSR HTML must contain no private value.                   |
+| Trade-off      | A judge without an agent has one extra click.                                                                                          |
+| Alternatives   | Auto-search on load with the fixture brief (superseded on 2026-09-03).                                                                 |
+| Implementation | `app/vitrine-app.tsx`, `lib/vault.ts`                                                                                                  |
 
-### WebMCP tools follow the workflow
+### Tools accumulate; one registration per name per session
 
 **Status:** Active  
-**Date:** 2026-08-28
+**Date:** 2026-09-03
 
-| Field | Value |
-| --- | --- |
-| What | Register `load_context` and `propose_brief`, then `search_products`, then `compare_products`, then `prepare_selection`. |
-| Why | Chrome's tool guidance is stateful collaboration, not one search wrapper. |
-| Trade-off | Agents that skip stages get a recovery message or a missing tool. |
-| Implementation | `lib/session.ts`, `lib/webmcp.ts` |
+| Field          | Value                                                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| What           | `load_context` and `search_products` at browse, then `compare_products`, then `prepare_selection`; nothing is unregistered mid-session.      |
+| Why            | A host that ignores `AbortSignal` cannot break the page; state-aware `{ error, hint }` results gate tools that are called too early.          |
+| Trade-off      | The progressive story depends on the host surfacing later registrations; `REGISTER_ALL_AT_MOUNT` flips to all-at-load if it does not.        |
+| Alternatives   | Re-register per stage and abort the previous set (superseded on 2026-09-03: it broke on hosts that ignore the signal).                      |
+| Implementation | `lib/session.ts`, `lib/webmcp.ts`                                                                                                           |
+
+### Arcade is server-side vault and merchant infrastructure
+
+**Status:** Active  
+**Date:** 2026-08-28, revised 2026-09-03
+
+| Field          | Value                                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| What           | Gmail (and optionally Calendar) fill the vault; Walmart / Google Shopping run the search with `{ keywords }` only. Fixture and recorded sample when Arcade is missing. |
+| Why            | Judges cannot be required to OAuth, live shopping needs a server secret, and the merchant must demonstrably never receive `max_price`.      |
+| Trade-off      | One demo mailbox owned by the author; the fixture is embedded in the client bundle as the fallback.                                        |
+| Alternatives   | Arcade on the only path, or a fake connected store.                                                                                        |
+| Implementation | `lib/arcade.ts`, `lib/shopping.ts`, `app/api/arcade/*`                                                                                     |
+
+### Superseded on 2026-09-03
+
+The 2026-08-28 design had a separate merchant panel component, a brief-proposal tool, and a
+shopper-submitted brief-sharing step before `search_products` could run. All three are gone: the
+merchant panel is the sidebar's literal receipt, and the sharing step is replaced by the schema and
+the server's 400. No file in `app/` or `lib/` references them.
 
 ## Assessment triggers
 

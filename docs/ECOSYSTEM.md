@@ -20,12 +20,12 @@ risk. Sponsor count is not a judging criterion.
 
 ## What the panel must be able to establish
 
-| Published criterion   | Vitrine evidence                                                                                  |
-| --------------------- | ------------------------------------------------------------------------------------------------- |
-| WebMCP Leverage       | Stage tools, a declarative share form, and a schema that cannot represent private fields          |
-| Execution             | A public hosted flow loads the vault, shares a brief, and shows real or honestly labeled products |
-| Potential Impact      | The demo makes a specific privacy problem understandable and shows the merchant receipt           |
-| Creativity & Ambition | Vitrine treats WebMCP as a selective-disclosure workflow, not a search button                     |
+| Published criterion   | Vitrine evidence                                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------------------- |
+| WebMCP Leverage       | Stage tools with titles and annotations, a per-tool registry, and a schema that cannot represent private fields |
+| Execution             | A public hosted flow loads the vault, prints the accepted receipt, and shows real or honestly labeled products  |
+| Potential Impact      | The demo makes a specific privacy problem understandable and shows the merchant receipt                         |
+| Creativity & Ambition | Vitrine treats WebMCP as a selective-disclosure workflow, not a search button                                   |
 
 ## Strategic guardrails
 

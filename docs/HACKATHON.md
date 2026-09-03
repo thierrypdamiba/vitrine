@@ -73,35 +73,46 @@ commit history or equivalent evidence. Preserve the Git history from this build 
 
 Vitrine turns a private shopping problem into an inspectable WebMCP workflow:
 
-1. The vault loads private context from a fixture or Arcade Gmail/Calendar.
-2. The agent proposes a public brief. The shopper submits `share_brief`.
-3. `search_products` sends only category, size, features, and colors.
-4. The merchant adapter searches Google Shopping or a labeled recorded sample and returns a receipt.
-5. Budget ranking stays in the vault. Compare and prepare follow. The shopper opens the listing.
+1. The page starts sealed: "Agent knows 0 facts / Shop received 0 fields", no search has run.
+2. The agent calls `load_context`; the vault fills from Gmail through Arcade on the server, or from
+   a labeled demo fixture.
+3. `search_products` sends only category, size, features, and colors. The schema has no other
+   field; the server returns 400 for any extra key.
+4. The merchant adapter searches Walmart or Google Shopping through Arcade with `{ keywords }`, or
+   a labeled recorded sample, and echoes the accepted brief back as the receipt. The sidebar prints
+   the receipt, the exact Arcade call, and the counter "9 / 4".
+5. Budget ranking stays on the page. Compare and prepare follow. The shopper opens the listing with
+   a separate gesture.
 
-The critical path uses deterministic vault and recorded product data. Live Arcade shopping is
-optional and labeled when it is missing. Google authorization, checkout, and account creation remain
-outside the credential-free judging path.
+The credential-free path uses the fixture and the recorded sample. Live Arcade is labeled when it
+is active and when it is missing. Google authorization, checkout, and account creation remain
+outside the judging path.
+
+(Superseded on 2026-09-03: the earlier shopper-submitted brief-sharing step between the vault and
+the search. The schema and the server's 400 are the boundary now.)
 
 ## Judge-facing story
 
 The product claim should be legible in one short sequence:
 
-1. Run the private shopping demo.
-2. Read Dad, Scotland, and the budget in the vault.
-3. Share the public brief.
-4. Confirm the merchant receipt has only jacket, XL, waterproof, packable, navy, and olive.
-5. Open a product card. Private values are absent there.
+1. Paste the agent prompt. It contains nothing private.
+2. Watch the vault fill from Gmail via Arcade: Dad, Scotland, October, $250, nine facts.
+3. Watch the grid narrow and the receipt print four keys with "200 · accepted".
+4. Click "Try to leak" and read the 400.
+5. Compare, prepare, open. Private values are absent from every merchant request.
 
 This sequence must be visible in the hosted app, reproducible from the README, and clear in a demo
 video under three minutes. The hosted URL must be public. Owner-only Sites hosting fails judging.
 
 ## Definition of submission-ready
 
-- The private path works without credentials in both supported browser environments.
-- At least one agent-facing tool registers and returns a structured result.
-- No merchant request contains private event fields or a budget ceiling.
-- The Seam is derived from the merchant adapter's received request.
-- The production build, SafeWord checks, and behavior scenarios pass.
+- The credential-free path works in both supported browser environments.
+- `load_context`, `search_products`, `compare_products`, and `prepare_selection` register with
+  titles and annotations and return structured results.
+- No merchant request contains private event fields or a budget ceiling; the Arcade shopping
+  input has exactly one key.
+- The Seam is derived from the merchant adapter's accepted request.
+- The SSR HTML contains no private value.
+- The production build, lint, format, unit tests, and behavior scenarios pass.
 - The public repository has a license, setup instructions, and dated commits.
 - The deployed URL and demo video match the repository behavior.

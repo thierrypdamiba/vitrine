@@ -24,7 +24,8 @@ the primary source.
 - Ship a fully usable non-WebMCP interface and register tools as progressive enhancement.
 - Prefer a few high-value capabilities to a large catalog of thin tools.
 - Keep merchant content out of tool metadata and treat returned catalog text as untrusted.
-- Use `document.modelContext`, the current specification surface. Many older articles demonstrate
-  `navigator.modelContext`; their code is not the project's API authority.
+- Use `document.modelContext`, the current specification surface, with `navigator.modelContext`
+  only as a fallback for hosts that expose just the alias. Many older articles demonstrate
+  `navigator.modelContext` alone; their code is not the project's API authority.
 - Recheck implementation status before release instead of freezing browser-version claims in UI
   copy.

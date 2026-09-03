@@ -3,6 +3,11 @@
 **Status:** planned
 **Planned on:** 2026-08-27
 
+> Superseded on 2026-09-03 where it disagrees with `.project/architecture.md` v2.0: the tool is
+> named `search_products` (not `search_catalog`), `load_context` reads the vault from Gmail via
+> Arcade on the server, there is no guided-demo button or consent step, and the page starts sealed
+> with no search on load. The build order and decisions below are kept as the dated record.
+
 ## Approach
 
 Riskiest assumption: a judge can tell the privacy claim from the merchant adapter's accepted request, not from copy. The cheapest proof is `A private field is rejected at the merchant boundary` plus `The Seam shows the merchant receipt`. If extra fields are accepted or the Seam is client-authored, the product is a storefront with a caption.
@@ -67,5 +72,5 @@ AGENTS.md already names Vitrine, the public brief, the Seam, and Arcade-as-optio
 ## Assessment triggers
 
 - Split the merchant to its own origin when a real retailer replaces deterministic inventory.
-- Add durable consent records before enabling live Arcade.
+- Add per-user Arcade authorization before treating this as a multi-shopper product.
 - Add visible confirmation and a separate security review before checkout.
