@@ -194,7 +194,11 @@ export function DemoSidebar({
   const budget = vault.context?.budgetUsd ?? null;
   const lastProbe = rejected[rejected.length - 1] ?? null;
   const hostDiffers =
-    hostToolNames !== null && hostToolNames.join(',') !== [...toolNames].sort().join(',');
+    hostToolNames !== null &&
+    hostToolNames
+      .filter(name => name !== 'filter_jackets')
+      .sort()
+      .join(',') !== [...toolNames].sort().join(',');
 
   return (
     <aside

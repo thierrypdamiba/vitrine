@@ -62,6 +62,9 @@ function sizeFromText(text: string): CatalogSize | undefined {
 export function filterRowsForBrief(items: CatalogItem[], brief: PublicBrief): CatalogItem[] {
   const relevant = items.filter(item => {
     if (EXCLUDED_TITLE.test(item.name)) return false;
+    // A listing that names a different size than the brief asked for is not a match,
+    // however many feature words it carries.
+    if (item.size && item.size !== brief.size) return false;
     const featureHits = brief.features.some(feature => item.features.includes(feature));
     const colorHits = brief.colors.some(color => item.colors.includes(color));
     const sizeHit = item.size === brief.size;

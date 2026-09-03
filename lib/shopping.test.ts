@@ -270,3 +270,41 @@ describe('shopping module boundary', () => {
     assert.equal(source.includes('loadPrivateContextFromArcade'), false);
   });
 });
+
+describe('filterRowsForBrief size contradiction', () => {
+  it('drops rows that name a different size than the brief', () => {
+    const base = { priceUsd: 40, imageUrl: '', merchantName: 'x', rating: null, url: 'u' };
+    const items: CatalogItem[] = [
+      {
+        ...base,
+        id: 'a',
+        name: 'Packable Puffer S',
+        features: ['waterproof', 'packable'],
+        colors: [],
+        size: 'S',
+      },
+      {
+        ...base,
+        id: 'b',
+        name: 'Storm Rain Jacket XL',
+        features: ['waterproof'],
+        colors: ['olive'],
+        size: 'XL',
+      },
+      {
+        ...base,
+        id: 'c',
+        name: 'Origin Packable Shell',
+        features: ['waterproof', 'packable'],
+        colors: [],
+      },
+    ];
+    const kept = filterRowsForBrief(items, {
+      category: 'jacket',
+      size: 'XL',
+      features: ['waterproof', 'packable'],
+      colors: ['navy', 'olive'],
+    }).map(item => item.id);
+    assert.deepEqual(kept.sort(), ['b', 'c']);
+  });
+});
