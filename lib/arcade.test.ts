@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
 import {
@@ -6,6 +7,7 @@ import {
   ArcadeAuthorizationRequired,
   DEFAULT_ARCADE_CONTEXT_QUERY,
   getArcadeConnection,
+  getArcadeStatus,
   loadPrivateContextFromArcade,
   parseArcadeContextRecord,
   readArcadeConfig,
@@ -111,6 +113,56 @@ describe('Arcade tool boundary', () => {
     const status = await getArcadeConnection(tools as never, 'shopper-1');
     assert.deepEqual(status, { connected: true, tokenStatus: 'completed' });
     assert.deepEqual(calls, [{ name: ARCADE_CONTEXT_TOOL, query: { user_id: 'shopper-1' } }]);
+  });
+
+  it('reads each tool status independently and treats a rejected get as false', async () => {
+    const tools = {
+      async get(name: string) {
+        if (name === 'GoogleCalendar.ListEvents') throw new Error('calendar probe failed');
+        return {
+          requirements: {
+            met: true,
+            authorization:
+              name === 'Walmart.SearchProducts'
+                ? undefined
+                : { token_status: 'completed' as const },
+          },
+        };
+      },
+    };
+    const status = await getArcadeStatus(tools as never, 'shopper-1');
+    assert.deepEqual(status, {
+      configured: true,
+      gmailRead: true,
+      calendar: false,
+      shopping: true,
+    });
+  });
+
+  it('reads Gmail as not authorized while its token is pending', async () => {
+    const tools = {
+      async get() {
+        return { requirements: { met: false, authorization: { token_status: 'pending' } } };
+      },
+    };
+    const status = await getArcadeStatus(tools as never, 'shopper-1');
+    assert.deepEqual(status, {
+      configured: true,
+      gmailRead: false,
+      calendar: false,
+      shopping: false,
+    });
+  });
+
+  it('never begins an OAuth flow from the context route', () => {
+    const source = readFileSync(
+      new URL('../app/api/arcade/context/route.ts', import.meta.url),
+      'utf8',
+    );
+    assert.equal(source.includes('authorize'), false);
+    const routes = readFileSync(new URL('./arcade-routes.ts', import.meta.url), 'utf8');
+    assert.equal(routes.includes('tools.authorize'), false);
+    assert.equal(routes.includes('authorizationUrl'), false);
   });
 
   it('returns parsed context without exposing the raw email', async () => {

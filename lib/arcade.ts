@@ -4,6 +4,7 @@ import {
   isRecord,
   type ArcadeTools,
 } from './arcade-client.ts';
+import type { ArcadeStatus } from './arcade-types.ts';
 import type { CatalogColor, CatalogFeature, CatalogSize, PrivateContext } from './vitrine.ts';
 
 export {
@@ -18,6 +19,8 @@ export {
 
 export const ARCADE_CONTEXT_TOOL = 'Gmail.SearchEmailsByQuery';
 export const ARCADE_CALENDAR_TOOL = 'GoogleCalendar.ListEvents';
+/** Status probe only: `shopping` means SERP_API_KEY is present. lib/shopping.ts owns the search. */
+const ARCADE_SHOPPING_TOOL = 'Walmart.SearchProducts';
 
 export type ArcadeConnection = {
   connected: boolean;
@@ -202,17 +205,33 @@ export async function getArcadeConnection(
   };
 }
 
-export async function beginArcadeAuthorization(
-  tools: ArcadeTools,
-  userId: string,
-): Promise<{ status: string; url?: string }> {
-  const authorization = await tools.authorize({
-    tool_name: ARCADE_CONTEXT_TOOL,
-    user_id: userId,
-  });
+function toolReady(
+  settled: PromiseSettledResult<Awaited<ReturnType<ArcadeTools['get']>>>,
+  needsToken: boolean,
+): boolean {
+  if (settled.status !== 'fulfilled') return false;
+  const requirements = settled.value.requirements;
+  if (requirements?.met !== true) return false;
+  if (!needsToken) return true;
+  const authorization = requirements.authorization;
+  return authorization ? authorization.token_status === 'completed' : true;
+}
+
+/**
+ * Booleans only, for the public status route. A rejected `tools.get` reads as false for that
+ * tool and leaves the others untouched; nothing here returns a token status or a URL.
+ */
+export async function getArcadeStatus(tools: ArcadeTools, userId: string): Promise<ArcadeStatus> {
+  const [gmail, calendar, walmart] = await Promise.allSettled(
+    [ARCADE_CONTEXT_TOOL, ARCADE_CALENDAR_TOOL, ARCADE_SHOPPING_TOOL].map(name =>
+      tools.get(name, { user_id: userId }),
+    ),
+  );
   return {
-    status: authorization.status ?? 'pending',
-    url: authorization.url,
+    configured: true,
+    gmailRead: toolReady(gmail, true),
+    calendar: toolReady(calendar, true),
+    shopping: toolReady(walmart, false),
   };
 }
 

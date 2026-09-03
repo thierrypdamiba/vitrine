@@ -9,7 +9,8 @@ export type ArcadeConfig = {
   contextQuery: string;
 };
 
-export type ArcadeTools = Pick<Arcade['tools'], 'authorize' | 'execute' | 'get'>;
+/** The server reads and executes tools; it never begins an OAuth flow, so `authorize` is absent. */
+export type ArcadeTools = Pick<Arcade['tools'], 'execute' | 'get'>;
 
 export const DEFAULT_ARCADE_CONTEXT_QUERY =
   'newer_than:120d (jacket OR scotland OR gift OR trip OR waterproof)';
