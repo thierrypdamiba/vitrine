@@ -1,8 +1,12 @@
 import { createArcadeTools, getArcadeConnection, readArcadeConfig } from '../../../../lib/arcade';
+import { guardVaultRequest } from '../../../../lib/request-guard';
 
 const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
 
-export async function GET(): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
+  const denied = guardVaultRequest(request);
+  if (denied) return denied;
+
   const config = readArcadeConfig();
   if (!config) {
     return Response.json(

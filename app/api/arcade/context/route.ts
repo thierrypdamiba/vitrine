@@ -7,6 +7,7 @@ import {
   loadPrivateContextFromArcade,
   readArcadeConfig,
 } from '../../../../lib/arcade';
+import { guardVaultRequest } from '../../../../lib/request-guard';
 
 const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
 
@@ -20,7 +21,10 @@ function authorizationResponse(url?: string): Response {
   );
 }
 
-export async function POST(): Promise<Response> {
+export async function POST(request: Request): Promise<Response> {
+  const denied = guardVaultRequest(request);
+  if (denied) return denied;
+
   const config = readArcadeConfig();
   if (!config) {
     return Response.json(

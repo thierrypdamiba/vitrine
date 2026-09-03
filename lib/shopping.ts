@@ -139,11 +139,11 @@ async function executeProductSearch(
   toolName: string,
   merchantQuery: string,
 ): Promise<unknown> {
-  // Both Arcade SERP tools (GoogleShopping.SearchProducts, Walmart.SearchProducts) take `keywords`.
-  const attempts: Record<string, string>[] = [
-    { keywords: merchantQuery },
-    { query: merchantQuery },
-  ];
+  // Both Arcade SERP tools (GoogleShopping.SearchProducts, Walmart.SearchProducts) take
+  // `keywords` and nothing else from the shopper. Walmart also accepts max_price; it is
+  // deliberately left empty so the budget never reaches the merchant. A retry with another
+  // key can never succeed and would only burn a metered execution.
+  const attempts: Record<string, string>[] = [{ keywords: merchantQuery }];
   let lastError: unknown;
   for (const input of attempts) {
     try {
