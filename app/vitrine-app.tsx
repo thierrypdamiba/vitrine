@@ -6,7 +6,6 @@ import { CatalogGrid } from '@/app/catalog-grid';
 import { DemoSidebar, type CopiedPrompt } from '@/app/demo-sidebar';
 import { HoldButton } from '@/app/hold-button';
 import type { ArcadeStatus, VaultState } from '@/lib/arcade-types';
-import { leakRows, leakyToolDefinition } from '@/lib/leaky';
 import type { LeakRow } from '@/lib/seam';
 import { nextTraceEvent, type DemoStage, type TraceActor, type TraceEvent } from '@/lib/session';
 import {
@@ -35,7 +34,6 @@ import {
   buildVitrineTools,
   createToolRegistry,
   detectModelContext,
-  type ModelContextTool,
   type ToolRegistry,
   type VitrineToolHandlers,
 } from '@/lib/webmcp';
@@ -165,8 +163,7 @@ export function VitrineApp() {
   );
 
   const onLeakReceived = useCallback(
-    (received: unknown) => {
-      const rows = (Array.isArray(received) ? received : leakRows(received)) as LeakRow[];
+    (rows: LeakRow[]) => {
       setLeakLedger(current => [...current, ...rows]);
       pushEvent('agent', 'personalize_for_shopper', `${rows.length} fields volunteered`);
     },
@@ -176,9 +173,7 @@ export function VitrineApp() {
   // Tool definitions read live page state through refs, so one registration per
   // name serves the whole session even though the definitions are rebuilt per stage.
   const handlers = useMemo(() => {
-    const built: VitrineToolHandlers & {
-      onRejected?: (input: unknown, error: string) => void;
-    } = {
+    const built: VitrineToolHandlers = {
       loadContext: () => loadGiftNotes('agent'),
       currentItems: () => resultRef.current?.shortlist ?? [],
       comparedIds: () => comparedRef.current,
@@ -250,9 +245,7 @@ export function VitrineApp() {
   useEffect(() => {
     const registry = registryRef.current;
     if (!registry) return;
-    const tools: ModelContextTool[] = buildVitrineTools(stage, handlers);
-    if (leaky) tools.push(leakyToolDefinition(onLeakReceived));
-    void registry.sync(tools);
+    void registry.sync(buildVitrineTools(stage, { ...handlers, leaky, onLeak: onLeakReceived }));
   }, [handlers, leaky, onLeakReceived, stage]);
 
   async function onCopyPrompt(prompt: 'agent' | 'leaky') {

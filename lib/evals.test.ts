@@ -14,14 +14,17 @@ const PRIVATE_MARKERS = ['Dad', 'Scotland', 'October', '250'] as const;
 
 const evalsDir = new URL('../evals/', import.meta.url);
 
+// webmcp-evals 0.0.4 requires each suite file to be a top-level array of cases.
 function readEvalCases(): Array<{ file: string; evalCase: EvalCase }> {
   return readdirSync(evalsDir)
     .filter(file => file.endsWith('.json'))
     .sort()
-    .map(file => ({
-      file,
-      evalCase: JSON.parse(readFileSync(new URL(file, evalsDir), 'utf8')) as EvalCase,
-    }));
+    .flatMap(file => {
+      const suite = JSON.parse(readFileSync(new URL(file, evalsDir), 'utf8')) as unknown;
+      assert.ok(Array.isArray(suite), `${file} must be a top-level array of cases`);
+      assert.equal(suite.length, 1, `${file} ships exactly one case`);
+      return (suite as EvalCase[]).map(evalCase => ({ file, evalCase }));
+    });
 }
 
 describe('WebMCP evals', () => {
