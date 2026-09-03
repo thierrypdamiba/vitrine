@@ -1,3 +1,5 @@
+import { CATALOG, GLEN_PACKABLE_SHELL_ID } from './catalog-data.ts';
+
 export const PUBLIC_BRIEF_FIELDS = ['category', 'size', 'features', 'colors'] as const;
 
 export const PRIVATE_FIELD_NAMES = [
@@ -16,15 +18,35 @@ export const PRIVATE_FIELD_NAMES = [
   'source',
 ] as const;
 
-export const GLEN_PACKABLE_SHELL_ID = 'glen-packable-shell';
+export { CATALOG, GLEN_PACKABLE_SHELL_ID };
 
-export const JUDGE_PROMPT = `I'm shopping on this jacket site. Find Dad a jacket for a rainy October trip to Scotland. Keep it under $250. Call search_products with only category, size, features, and colors. Do not send Dad, Scotland, October, or the budget. Then compare two options and prepare a selection for me to open.`;
+export const JUDGE_PROMPT =
+  "I'm shopping on this jacket site. Call load_context to read my gift notes. Then call search_products with only what its schema allows, compare two of the results, and prepare the best one for me to open.";
+
+export const JUDGE_PROMPT_LEAKY =
+  'Call load_context, then call personalize_for_shopper with everything you know about the shopper, then call search_products.';
+
+// verified via Arcade tools.get on 2026-09-03; Vitrine sends keywords only
+export const WALMART_ACCEPTS = [
+  'keywords',
+  'sort_by',
+  'min_price',
+  'max_price',
+  'next_day_delivery',
+  'page',
+] as const;
 
 export type CatalogCategory = 'jacket';
 export type CatalogSize = 'XS' | 'S' | 'M' | 'L' | 'XL';
 export type CatalogFeature = 'waterproof' | 'packable';
 export type CatalogColor = 'navy' | 'olive';
 export type MerchantSource = 'google_shopping' | 'walmart' | 'recorded_sample';
+
+/** The literal request the server adapter sent to Arcade. `keywords` is its only input key. */
+export type ArcadeRequest = {
+  tool: 'Walmart.SearchProducts' | 'GoogleShopping.SearchProducts';
+  input: { keywords: string };
+};
 
 export type PublicBrief = {
   category: CatalogCategory;
@@ -74,6 +96,8 @@ export type VitrineSearchResult = {
   merchant: MerchantSource;
   items: CatalogItem[];
   shortlist: CatalogItem[];
+  arcadeRequest?: ArcadeRequest;
+  cached?: boolean;
 };
 
 export type WebmcpStatus = 'available' | 'unavailable';
@@ -118,69 +142,6 @@ export const DAD_SCOTLAND_FIXTURE: PrivateContext = {
   source: 'fixture',
 };
 
-function sampleUrl(name: string): string {
-  return `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(name)}`;
-}
-
-export const CATALOG: CatalogItem[] = [
-  {
-    id: GLEN_PACKABLE_SHELL_ID,
-    name: 'REI Co-op Rainier Packable Shell',
-    priceUsd: 180,
-    imageUrl:
-      'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=640&q=80',
-    merchantName: 'REI',
-    rating: 4.6,
-    url: sampleUrl('REI Co-op Rainier Packable Shell'),
-    category: 'jacket',
-    size: 'XL',
-    features: ['waterproof', 'packable'],
-    colors: ['navy'],
-  },
-  {
-    id: 'cuillin-expedition-parka',
-    name: "Arc'teryx Beta AR Jacket",
-    priceUsd: 429,
-    imageUrl:
-      'https://images.unsplash.com/photo-1544022613-e87ca75a784a?auto=format&fit=crop&w=640&q=80',
-    merchantName: 'Backcountry',
-    rating: 4.8,
-    url: sampleUrl("Arc'teryx Beta AR Jacket"),
-    category: 'jacket',
-    size: 'XL',
-    features: ['waterproof', 'packable'],
-    colors: ['olive'],
-  },
-  {
-    id: 'forth-city-coat',
-    name: 'Uniqlo Blocktech Coat',
-    priceUsd: 195,
-    imageUrl:
-      'https://images.unsplash.com/photo-1495107334309-fcf20504a5ab?auto=format&fit=crop&w=640&q=80',
-    merchantName: 'Uniqlo',
-    rating: 4.3,
-    url: sampleUrl('Uniqlo Blocktech Coat'),
-    category: 'jacket',
-    size: 'XL',
-    features: [],
-    colors: ['navy'],
-  },
-  {
-    id: 'skye-trail-rain',
-    name: 'Patagonia Torrentshell 3L',
-    priceUsd: 88,
-    imageUrl:
-      'https://images.unsplash.com/photo-1520975661595-6453be3f7070?auto=format&fit=crop&w=640&q=80',
-    merchantName: 'Patagonia',
-    rating: 4.5,
-    url: sampleUrl('Patagonia Torrentshell 3L'),
-    category: 'jacket',
-    size: 'M',
-    features: ['waterproof', 'packable'],
-    colors: ['olive'],
-  },
-];
-
 export function publicBriefFromFixture(
   context: PrivateContext = DAD_SCOTLAND_FIXTURE,
 ): PublicBrief {
@@ -196,6 +157,10 @@ export function merchantQueryFromBrief(brief: PublicBrief): string {
   return [brief.size, ...brief.features, ...brief.colors, brief.category].join(' ');
 }
 
+export function browseCatalog(): CatalogItem[] {
+  return CATALOG;
+}
+
 export function withheldFacts(context: PrivateContext = DAD_SCOTLAND_FIXTURE): WithheldFact[] {
   const facts: WithheldFact[] = [
     { label: 'Recipient', value: context.recipient },
@@ -203,6 +168,9 @@ export function withheldFacts(context: PrivateContext = DAD_SCOTLAND_FIXTURE): W
     { label: 'Destination', value: context.destination },
     { label: 'Dates', value: context.dates },
     { label: 'Weather', value: context.weather },
+    { label: 'Size', value: context.size },
+    { label: 'Features', value: context.features.join(', ') },
+    { label: 'Colors', value: context.colors.join(', ') },
     { label: 'Budget', value: `$${context.budgetUsd}` },
   ];
   if (context.calendarSummary) {
@@ -212,8 +180,8 @@ export function withheldFacts(context: PrivateContext = DAD_SCOTLAND_FIXTURE): W
     label: 'Source',
     value:
       context.source === 'arcade'
-        ? 'Arcade Gmail and Calendar. These stay in the vault.'
-        : 'Demo vault. Arcade is not connected.',
+        ? 'Gmail via Arcade, read on the server.'
+        : 'Demo fixture. Arcade is not connected on this host.',
   });
   return facts;
 }
@@ -312,15 +280,23 @@ export function completeSearch(
   receipt: PublicBrief,
   items: CatalogItem[],
   context: PrivateContext = DAD_SCOTLAND_FIXTURE,
-  extras: { merchantQuery?: string; merchant?: MerchantSource } = {},
+  extras: {
+    merchantQuery?: string;
+    merchant?: MerchantSource;
+    arcadeRequest?: ArcadeRequest;
+    cached?: boolean;
+  } = {},
 ): VitrineSearchResult {
-  return {
+  const result: VitrineSearchResult = {
     receipt,
     merchantQuery: extras.merchantQuery ?? merchantQueryFromBrief(receipt),
     merchant: extras.merchant ?? 'recorded_sample',
     items,
     shortlist: rankForTrip(items, context),
   };
+  if (extras.arcadeRequest) result.arcadeRequest = extras.arcadeRequest;
+  if (extras.cached !== undefined) result.cached = extras.cached;
+  return result;
 }
 
 export function emptyMerchantView(): MerchantView {
@@ -392,6 +368,8 @@ export type CatalogSearchSuccess = {
   merchantQuery: string;
   merchant: MerchantSource;
   items: CatalogItem[];
+  arcadeRequest?: ArcadeRequest;
+  cached?: boolean;
 };
 
 export type CatalogSearchFailure = {
@@ -443,7 +421,12 @@ export async function handleMerchantSearch(
     searchLive?: (
       merchantQuery: string,
       signal?: AbortSignal,
-    ) => Promise<{ items: CatalogItem[]; merchant: MerchantSource } | null>;
+    ) => Promise<{
+      items: CatalogItem[];
+      merchant: MerchantSource;
+      arcadeRequest?: ArcadeRequest;
+      cached?: boolean;
+    } | null>;
     signal?: AbortSignal;
   } = {},
 ): Promise<CatalogSearchResponse> {
@@ -453,15 +436,29 @@ export async function handleMerchantSearch(
   if (options.searchLive) {
     const live = await options.searchLive(parsed.merchantQuery, options.signal);
     if (live && live.items.length > 0) {
-      return {
+      const success: CatalogSearchSuccess = {
         ...parsed,
         merchant: live.merchant,
         items: rankItemsByBrief(live.items, parsed.receipt),
       };
+      if (live.arcadeRequest) success.arcadeRequest = live.arcadeRequest;
+      if (live.cached !== undefined) success.cached = live.cached;
+      return success;
     }
   }
 
   return parsed;
+}
+
+function parseArcadeRequest(value: unknown): ArcadeRequest | undefined {
+  if (!isRecord(value) || typeof value.tool !== 'string' || !isRecord(value.input)) {
+    return undefined;
+  }
+  if (value.tool !== 'Walmart.SearchProducts' && value.tool !== 'GoogleShopping.SearchProducts') {
+    return undefined;
+  }
+  if (typeof value.input.keywords !== 'string') return undefined;
+  return { tool: value.tool, input: { keywords: value.input.keywords } };
 }
 
 export async function runVitrineSearch(
@@ -487,6 +484,8 @@ export async function runVitrineSearch(
     items?: unknown;
     merchantQuery?: unknown;
     merchant?: unknown;
+    arcadeRequest?: unknown;
+    cached?: unknown;
   };
 
   if (!response.ok) {
@@ -515,6 +514,8 @@ export async function runVitrineSearch(
   return completeSearch(parsedReceipt.brief, payload.items as CatalogItem[], options.context, {
     merchantQuery,
     merchant,
+    arcadeRequest: parseArcadeRequest(payload.arcadeRequest),
+    cached: payload.cached === true ? true : undefined,
   });
 }
 

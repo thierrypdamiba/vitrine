@@ -2,21 +2,29 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  CATALOG,
   DAD_SCOTLAND_FIXTURE,
   GLEN_PACKABLE_SHELL_ID,
+  JUDGE_PROMPT,
+  JUDGE_PROMPT_LEAKY,
   PRIVATE_FIELD_NAMES,
   PUBLIC_BRIEF_FIELDS,
+  WALMART_ACCEPTS,
+  browseCatalog,
   completeSearch,
+  handleMerchantSearch,
   merchantQueryFromBrief,
   merchantViewCopy,
   parsePublicBrief,
   privateMarkersInMerchantCopy,
   publicBriefFromFixture,
   rankForTrip,
+  runVitrineSearch,
   searchInventory,
   viewFromSearch,
   withheldFacts,
   rankItemsByBrief,
+  type ArcadeRequest,
   type CatalogItem,
 } from './vitrine.ts';
 
@@ -86,6 +94,22 @@ describe('vault and merchant views', () => {
     assert.deepEqual(result.receipt, fixtureBrief);
     assert.equal('withheld' in result, false);
     const withheld = withheldFacts(DAD_SCOTLAND_FIXTURE);
+    assert.equal(withheld.length, 10);
+    assert.deepEqual(
+      withheld.map(fact => fact.label),
+      [
+        'Recipient',
+        'Relationship',
+        'Destination',
+        'Dates',
+        'Weather',
+        'Size',
+        'Features',
+        'Colors',
+        'Budget',
+        'Source',
+      ],
+    );
     const named = withheld.map(fact => `${fact.label} ${fact.value}`).join(' ');
     assert.match(named, /Dad/);
     assert.match(named, /Scotland/);
@@ -138,5 +162,86 @@ describe('rankItemsByBrief', () => {
       ranked.map(item => item.id),
       ['b', 'c', 'a'],
     );
+  });
+});
+
+describe('judge prompts', () => {
+  it('keep every private fact and enum value out of the agent prompt', () => {
+    for (const marker of ['Dad', 'Scotland', 'October', '250', 'XL', 'navy', 'olive']) {
+      assert.equal(JUDGE_PROMPT.includes(marker), false, `${marker} must not be in the prompt`);
+      assert.equal(
+        JUDGE_PROMPT_LEAKY.includes(marker),
+        false,
+        `${marker} must not be in the prompt`,
+      );
+    }
+    assert.match(JUDGE_PROMPT, /load_context/);
+    assert.match(JUDGE_PROMPT, /search_products/);
+    assert.match(JUDGE_PROMPT_LEAKY, /personalize_for_shopper/);
+  });
+});
+
+describe('catalog and merchant contracts', () => {
+  it('browses the full sample catalog without a brief', () => {
+    assert.deepEqual(browseCatalog(), CATALOG);
+    assert.ok(browseCatalog().length >= 4);
+  });
+
+  it('records that Walmart accepts a price ceiling Vitrine never sends', () => {
+    assert.ok(WALMART_ACCEPTS.includes('max_price'));
+    assert.equal(WALMART_ACCEPTS[0], 'keywords');
+  });
+
+  it('carries the literal Arcade request through the search result', async () => {
+    const brief = publicBriefFromFixture();
+    const arcadeRequest: ArcadeRequest = {
+      tool: 'Walmart.SearchProducts',
+      input: { keywords: merchantQueryFromBrief(brief) },
+    };
+    const live = await handleMerchantSearch(brief, {
+      searchLive: async () => ({
+        items: searchInventory(brief),
+        merchant: 'walmart',
+        arcadeRequest,
+        cached: true,
+      }),
+    });
+    assert.equal(live.ok, true);
+    if (!live.ok) return;
+    assert.deepEqual(live.arcadeRequest, arcadeRequest);
+    assert.equal(live.cached, true);
+
+    const result = await runVitrineSearch(brief, {
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            receipt: live.receipt,
+            merchantQuery: live.merchantQuery,
+            merchant: live.merchant,
+            items: live.items,
+            arcadeRequest: live.arcadeRequest,
+            cached: live.cached,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+    });
+    assert.deepEqual(result.arcadeRequest, arcadeRequest);
+    assert.equal(result.cached, true);
+    assert.deepEqual(Object.keys(result.arcadeRequest?.input ?? {}), ['keywords']);
+
+    const sample = await runVitrineSearch(brief, {
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            receipt: brief,
+            merchant: 'recorded_sample',
+            items: searchInventory(brief),
+            arcadeRequest: { tool: 'Gmail.SearchEmailsByQuery', input: { query: 'x' } },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+    });
+    assert.equal(sample.arcadeRequest, undefined);
+    assert.equal('cached' in sample, false);
   });
 });

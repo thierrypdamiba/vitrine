@@ -2,45 +2,61 @@ import type { CatalogItem, PublicBrief } from './vitrine.ts';
 
 export type DemoStage = 'browse' | 'results' | 'compared' | 'prepared';
 
-export type TraceLane = 'vault' | 'consent' | 'webmcp' | 'merchant';
+export type TraceActor = 'agent' | 'shopper' | 'merchant';
 
 export type TraceEvent = {
   id: string;
-  lane: TraceLane;
+  actor: TraceActor;
   title: string;
   detail: string;
+  arcadeTool?: string;
 };
+
+export type ToolMessage = { error: string; hint: string };
 
 export const SEARCH_PRODUCTS_TOOL_NAME = 'search_products';
 export const LOAD_CONTEXT_TOOL_NAME = 'load_context';
-export const PROPOSE_BRIEF_TOOL_NAME = 'propose_brief';
 export const COMPARE_PRODUCTS_TOOL_NAME = 'compare_products';
 export const PREPARE_SELECTION_TOOL_NAME = 'prepare_selection';
-export const SHARE_BRIEF_TOOL_NAME = 'share_brief';
+export const LEAKY_TOOL_NAME = 'personalize_for_shopper';
 
+// flip to true if the hosted check shows ChatGPT does not surface tools registered after page load
+export const REGISTER_ALL_AT_MOUNT = false;
+
+/**
+ * Tools accumulate as the page state advances and are never unregistered
+ * mid-session; each later stage is a superset of the one before it.
+ */
 export function toolsForStage(stage: DemoStage): string[] {
   switch (stage) {
     case 'browse':
-      return [SEARCH_PRODUCTS_TOOL_NAME];
+      return [LOAD_CONTEXT_TOOL_NAME, SEARCH_PRODUCTS_TOOL_NAME];
     case 'results':
-      return [SEARCH_PRODUCTS_TOOL_NAME, COMPARE_PRODUCTS_TOOL_NAME];
+      return [LOAD_CONTEXT_TOOL_NAME, SEARCH_PRODUCTS_TOOL_NAME, COMPARE_PRODUCTS_TOOL_NAME];
     case 'compared':
-      return [SEARCH_PRODUCTS_TOOL_NAME, COMPARE_PRODUCTS_TOOL_NAME, PREPARE_SELECTION_TOOL_NAME];
     case 'prepared':
-      return [SEARCH_PRODUCTS_TOOL_NAME, PREPARE_SELECTION_TOOL_NAME];
+      return [
+        LOAD_CONTEXT_TOOL_NAME,
+        SEARCH_PRODUCTS_TOOL_NAME,
+        COMPARE_PRODUCTS_TOOL_NAME,
+        PREPARE_SELECTION_TOOL_NAME,
+      ];
   }
 }
 
-export function consentNeededMessage(): string {
-  return 'The shopper has not shared the public brief. Fill share_brief and wait for them to submit.';
+export function toolsToRegister(stage: DemoStage): string[] {
+  return REGISTER_ALL_AT_MOUNT ? toolsForStage('compared') : toolsForStage(stage);
 }
 
-export function searchFirstMessage(): string {
-  return 'No products yet. Call search_products first.';
+export function searchFirstMessage(): ToolMessage {
+  return { error: 'No products yet.', hint: 'Call search_products first.' };
 }
 
-export function compareFirstMessage(): string {
-  return 'Compare two products first, then call prepare_selection with one id.';
+export function compareFirstMessage(): ToolMessage {
+  return {
+    error: 'Nothing compared yet.',
+    hint: 'Call compare_products with two or three ids from the visible results, then prepare_selection with one of them.',
+  };
 }
 
 export function parseProductIds(input: unknown): string[] {
@@ -95,9 +111,16 @@ export function briefsMatch(left: PublicBrief, right: PublicBrief): boolean {
 
 let traceSeq = 0;
 
-export function nextTraceEvent(lane: TraceLane, title: string, detail: string): TraceEvent {
+export function nextTraceEvent(
+  actor: TraceActor,
+  title: string,
+  detail: string,
+  arcadeTool?: string,
+): TraceEvent {
   traceSeq += 1;
-  return { id: `trace-${traceSeq}`, lane, title, detail };
+  const event: TraceEvent = { id: `trace-${traceSeq}`, actor, title, detail };
+  if (arcadeTool) event.arcadeTool = arcadeTool;
+  return event;
 }
 
 export function stageIndex(stage: DemoStage): number {

@@ -58,7 +58,7 @@ export function VitrineApp() {
     setError(null);
     setEvents(current => [
       ...current,
-      nextTraceEvent('webmcp', 'search_products', JSON.stringify(next.receipt)),
+      nextTraceEvent('agent', 'search_products', JSON.stringify(next.receipt)),
     ]);
   }, []);
 
@@ -118,14 +118,14 @@ export function VitrineApp() {
         stageRef.current = 'compared';
         setEvents(current => [
           ...current,
-          nextTraceEvent('webmcp', 'compare_products', ids.join(', ')),
+          nextTraceEvent('agent', 'compare_products', ids.join(', ')),
         ]);
       },
       onPrepare: id => {
         setPreparedId(id);
         setStage('prepared');
         stageRef.current = 'prepared';
-        setEvents(current => [...current, nextTraceEvent('webmcp', 'prepare_selection', id)]);
+        setEvents(current => [...current, nextTraceEvent('agent', 'prepare_selection', id)]);
       },
       search: (nextBrief, extras) =>
         runVitrineSearch(nextBrief, {
@@ -265,7 +265,7 @@ export function VitrineApp() {
                 stageRef.current = 'compared';
                 setEvents(current => [
                   ...current,
-                  nextTraceEvent('webmcp', 'compare_products', comparedIds.join(', ')),
+                  nextTraceEvent('agent', 'compare_products', comparedIds.join(', ')),
                 ]);
               }}
               className="rounded-full border border-stone-400 bg-white px-4 py-2 text-sm font-medium disabled:opacity-40"
@@ -307,7 +307,7 @@ export function VitrineApp() {
               setPreparedId(id);
               setStage('prepared');
               stageRef.current = 'prepared';
-              setEvents(current => [...current, nextTraceEvent('webmcp', 'prepare_selection', id)]);
+              setEvents(current => [...current, nextTraceEvent('agent', 'prepare_selection', id)]);
             }}
           />
         </section>
